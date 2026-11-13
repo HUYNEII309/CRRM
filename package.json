@@ -1,0 +1,17 @@
+{
+  "name": "crmplus-node",
+  "version": "1.0.0",
+  "description": "CRM Web App (Node.js + Express + SQL Server) compatible with CRMPLUSDB",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.1",
+    "jsonwebtoken": "^9.0.2",
+    "mssql": "^11.0.1"
+  }
+}
