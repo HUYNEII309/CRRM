@@ -12,67 +12,50 @@
 <body>
   <!-- MODERN LOGIN VIEW -->
   <div id="login-view" class="auth-container">
-    <!-- Dynamic Ambient Glow & Particles -->
-    <div class="glow-orb orb-1"></div>
-    <div class="glow-orb orb-2"></div>
-    <div class="glow-orb orb-3"></div>
+    <!-- Ambient Decor: Grid, Rings, Spotlight & Luminous Mesh Orbs -->
+    <div class="auth-bg-decor">
+      <div class="auth-grid-pattern"></div>
+      <div class="auth-rings">
+        <div class="ring ring-1"></div>
+        <div class="ring ring-2"></div>
+        <div class="ring ring-3"></div>
+      </div>
+      <div class="auth-spotlight"></div>
+      <div class="glow-orb orb-1"></div>
+      <div class="glow-orb orb-2"></div>
+      <div class="glow-orb orb-3"></div>
+      <div class="glow-orb orb-4"></div>
+    </div>
+
+    <!-- Top Corner Theme Toggle -->
+    <div class="login-topbar-actions">
+      <button type="button" id="btn-theme-toggle-login" class="theme-toggle-btn login-theme-toggle" title="Chuyển chế độ Sáng / Tối">
+        <svg class="theme-icon-sun" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+        </svg>
+        <svg class="theme-icon-moon" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+        </svg>
+      </button>
+    </div>
 
     <div class="auth-wrapper-modern">
-      <!-- Left side: Showcase Branding Banner -->
-      <div class="auth-banner">
-        <div class="banner-badge">
-          <span class="badge-dot"></span> CRM ENTERPRISE PLATFORM
-        </div>
-        <h2 class="banner-title">Quản trị & Đột phá <br/><span class="gradient-text">Doanh số Khách hàng</span></h2>
-        <p class="banner-desc">Hệ thống đồng bộ dữ liệu thời gian thực, quản lý khách hàng 360°, chăm sóc chuyên nghiệp và tối ưu hiệu suất bán hàng.</p>
-        
-        <div class="banner-features">
-          <div class="feature-item">
-            <div class="feature-icon">
-              <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-              </svg>
-            </div>
-            <div>
-              <strong>Xử lý siêu tốc</strong>
-              <span>Truy vấn dữ liệu thời gian thực từ SQL Server</span>
-            </div>
-          </div>
-          <div class="feature-item">
-            <div class="feature-icon">
-              <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
-              </svg>
-            </div>
-            <div>
-              <strong>Bảo mật & Phân quyền</strong>
-              <span>Kiểm soát chi tiết theo từng phòng ban, nhân sự</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="banner-footer-quote">
-          <div class="quote-stars">★★★★★</div>
-          <p>“Giải pháp CRM chuyên sâu cho quản lý khách hàng & dịch vụ.”</p>
-        </div>
-      </div>
-
-      <!-- Right side: Glassmorphism Login Card -->
+      <!-- Centered Glassmorphism Login Card -->
       <div class="auth-card-modern">
         <div class="auth-card-inner">
           <div class="auth-header">
-            <div class="brand-badge-logo">
+            <div class="brand-badge-logo" id="login-logo-btn" title="Bấm vào logo CRM+ để hiển thị tùy chọn nâng cao">
               <span>CRM</span><small>+</small>
             </div>
-            <div>
+            <div class="auth-header-text">
               <h1 class="auth-title">Chào mừng trở lại!</h1>
               <p class="auth-subtitle">Vui lòng đăng nhập để vào hệ thống</p>
             </div>
           </div>
 
           <form id="login-form" class="auth-form-modern">
-            <!-- CHỌN LOẠI MẬT KHẨU ĐĂNG NHẬP -->
-            <div class="login-type-switch">
+            <!-- CHỌN LOẠI MẬT KHẨU ĐĂNG NHẬP (MẶC ĐỊNH ẨN, BẤM LOGO CRM+ ĐỂ HIỂN THỊ) -->
+            <div class="login-type-switch hidden" id="login-type-switch">
               <label class="login-type-btn">
                 <input type="radio" name="login_type" value="default" />
                 <span class="type-pill">
@@ -139,8 +122,8 @@
               </span>
             </button>
 
-            <!-- ICON DANH SÁCH NHÂN VIÊN DƯỚI NÚT ĐĂNG NHẬP -->
-            <button type="button" id="btn-login-staff-list" class="btn-staff-list-link">
+            <!-- ICON DANH SÁCH NHÂN VIÊN DƯỚI NÚT ĐĂNG NHẬP (MẶC ĐỊNH ẨN, BẤM LOGO CRM+ ĐỂ HIỂN THỊ) -->
+            <button type="button" id="btn-login-staff-list" class="btn-staff-list-link hidden">
               <svg width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
@@ -163,7 +146,7 @@
   </div>
 
   <!-- MAIN APP SHELL -->
-  <div id="app-view" class="app-shell sidebar-hidden hidden">
+  <div id="app-view" class="app-shell hidden">
     <!-- Mobile Backdrop Drawer Overlay -->
     <div id="sidebar-backdrop" class="sidebar-backdrop"></div>
 
@@ -257,6 +240,20 @@
             </svg>
             <span>Cấu hình SQL</span>
           </button>
+        </div>
+        <div class="topbar-right">
+          <button id="btn-theme-toggle" class="btn-theme-toggle" type="button" title="Chuyển chế độ Sáng / Tối" aria-label="Toggle theme">
+            <svg class="theme-icon-sun" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+            </svg>
+            <svg class="theme-icon-moon" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+            </svg>
+          </button>
+          <div class="topbar-user-pill">
+            <span class="topbar-avatar" id="topbar-user-avatar">NV</span>
+            <span class="topbar-username" id="topbar-user-name">Nhân viên</span>
+          </div>
         </div>
       </header>
 

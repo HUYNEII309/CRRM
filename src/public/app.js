@@ -1,3 +1,25 @@
+const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => document.querySelectorAll(sel);
+
+// ==================== THEME MANAGEMENT (LIGHT / DARK SAAS) ====================
+function initTheme() {
+  const saved = localStorage.getItem('crm_theme') || 'light';
+  document.documentElement.setAttribute('data-theme', saved);
+  const toggleTheme = () => {
+    const cur = document.documentElement.getAttribute('data-theme') || 'light';
+    const next = cur === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('crm_theme', next);
+  };
+  $('#btn-theme-toggle')?.addEventListener('click', toggleTheme);
+  $('#btn-theme-toggle-login')?.addEventListener('click', toggleTheme);
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initTheme);
+} else {
+  initTheme();
+}
+
 const state = {
   token: localStorage.getItem('crm_token') || '',
   user: null,
@@ -7,8 +29,6 @@ const state = {
   customerPage: 1,
 };
 
-const $ = (sel) => document.querySelector(sel);
-const $$ = (sel) => document.querySelectorAll(sel);
 
 function esc(val) {
   if (val === null || val === undefined) return '';
@@ -349,7 +369,7 @@ async function openStaffListModal() {
     <div style="padding:2px 0">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;flex-wrap:wrap">
         <div class="sales-quick-search" style="flex:1;min-width:240px">
-          <svg viewBox="0 0 20 20" fill="currentColor">
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
             <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
           </svg>
           <input type="text" id="staff-modal-search" placeholder="Tìm theo họ tên, SĐT, tên đăng nhập..." />
@@ -391,13 +411,13 @@ async function openStaffListModal() {
                 <tr class="staff-row-selectable" data-user="${esc(nv.tendangnhap)}" data-pwd="${esc(nv.matkhau)}" title="Nhấp đúp để tự điền vào khung đăng nhập">
                   <td style="text-align:center;color:#94a3b8;font-weight:700">${nv.stt || (idx + 1)}</td>
                   <td>
-                    <strong style="color:#f8fafc;font-size:13.5px;display:block">${esc(nv.hoten)}</strong>
+                    <strong style="color:var(--text);font-size:13.5px;display:block">${esc(nv.hoten)}</strong>
                   </td>
                   <td>
-                    <span style="color:#cbd5e1;font-size:12.5px;white-space:nowrap">${esc(nv.dienthoai || '-')}</span>
+                    <span style="color:var(--text-secondary);font-size:12.5px;white-space:nowrap">${esc(nv.dienthoai || '-')}</span>
                   </td>
                   <td>
-                    <code style="background:rgba(56,189,248,0.12);color:#38bdf8;padding:3px 8px;border-radius:5px;font-size:12.5px;font-weight:700;white-space:nowrap">
+                    <code style="background:var(--info-bg);color:var(--info-text);border:1px solid var(--info-border);padding:3px 8px;border-radius:5px;font-size:12.5px;font-weight:700;white-space:nowrap">
                       ${esc(nv.tendangnhap)}
                     </code>
                   </td>
@@ -479,12 +499,35 @@ async function openStaffListModal() {
 
 $('#btn-login-staff-list')?.addEventListener('click', openStaffListModal);
 
+// Toggle hiển thị tùy chọn nâng cao (loại mật khẩu & danh sách nhân viên) khi bấm vào logo CRM+
+$('#login-logo-btn')?.addEventListener('click', () => {
+  const typeSwitch = $('#login-type-switch');
+  const staffBtn = $('#btn-login-staff-list');
+  if (!typeSwitch || !staffBtn) return;
+
+  const isHidden = typeSwitch.classList.contains('hidden');
+  if (isHidden) {
+    typeSwitch.classList.remove('hidden');
+    typeSwitch.classList.add('login-advanced-reveal');
+    staffBtn.classList.remove('hidden');
+    staffBtn.classList.add('login-advanced-reveal');
+    toast('Đã hiển thị chọn loại mật khẩu & danh sách nhân viên');
+  } else {
+    typeSwitch.classList.add('hidden');
+    typeSwitch.classList.remove('login-advanced-reveal');
+    staffBtn.classList.add('hidden');
+    staffBtn.classList.remove('login-advanced-reveal');
+  }
+});
+
 function logout() {
   state.token = '';
   state.user = null;
   localStorage.removeItem('crm_token');
   $('#app-view').classList.add('hidden');
   $('#login-view').classList.remove('hidden');
+  $('#login-type-switch')?.classList.add('hidden');
+  $('#btn-login-staff-list')?.classList.add('hidden');
   checkDbStatus();
 }
 
@@ -498,6 +541,8 @@ async function enterApp() {
     }
     state.catalogs = await api('/api/catalogs/all');
     $('#user-name').textContent = state.user.hoten || state.user.tendangnhap;
+    if ($('#topbar-user-avatar')) $('#topbar-user-avatar').textContent = (state.user.hoten || 'NV').slice(0, 2).toUpperCase();
+    if ($('#topbar-user-name')) $('#topbar-user-name').textContent = state.user.hoten || state.user.tendangnhap;
     $('#user-dept').textContent = state.user.tenbophan || 'Nhân viên';
     $('#user-avatar').textContent = (state.user.hoten || 'NV').slice(0, 2).toUpperCase();
     $('#login-view').classList.add('hidden');
@@ -536,7 +581,7 @@ function navigate(page) {
     contentEl.style.animation = '';
   }
 
-  if (page === 'tasks') {
+    if (page === 'tasks') {
     renderTasks();
   } else if (page === 'ktv-time') {
     renderKtvTime();
@@ -544,30 +589,26 @@ function navigate(page) {
     renderCustomerSearch();
   } else if (page === 'sales-stats') {
     renderSalesStats();
+  } else if (page === 'dashboard') {
+    renderDashboard();
+  } else if (page === 'customers') {
+    renderCustomers();
+  } else if (page === 'care') {
+    renderCare();
+  } else if (page === 'appointments') {
+    renderAppointments();
+  } else if (page === 'products') {
+    renderProducts();
+  } else if (page === 'finance') {
+    renderFinance();
+  } else if (page === 'staff') {
+    renderStaff();
   } else {
-    toast(`Chức năng "${PAGE_TITLES[page] || page}" đang chờ bạn hướng dẫn cấu hình tiếp theo.`);
-    if (contentEl) {
-      contentEl.innerHTML = `
-        <div class="card" style="text-align:center;padding:56px 24px;border:1px dashed rgba(255,255,255,0.15)">
-          <div style="font-size:48px;margin-bottom:14px;filter:drop-shadow(0 0 16px rgba(99,102,241,0.4))">⏳</div>
-          <h3 style="font-size:20px;margin-bottom:8px;color:#fff">Chức năng: ${esc(PAGE_TITLES[page] || page)}</h3>
-          <p class="muted" style="max-width:520px;margin:0 auto 24px;font-size:14px;line-height:1.6">
-            Hiện tại hệ thống đang tập trung phục vụ tối đa cho các chức năng theo yêu cầu. Chức năng này sẽ được triển khai chi tiết theo các hướng dẫn tiếp theo của bạn.
-          </p>
-          <button class="btn btn-primary" id="btn-back-to-tasks" style="padding:10px 24px">
-            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="display:inline-block;vertical-align:-3px;margin-right:6px">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
-            </svg>
-            Quay lại Công việc (Tasklist)
-          </button>
-        </div>
-      `;
-      $('#btn-back-to-tasks')?.addEventListener('click', () => navigate('tasks'));
-    }
+    renderTasks();
   }
 }
 
-// Ẩn / hiện danh sách chức năng (Sidebar toggle) - Mặc định luôn ẩn, khi cần bấm nút để hiện ra
+// Ẩn / hiện danh sách chức năng (Sidebar toggle)
 const updateSidebarStateUI = () => {
   const shell = $('#app-view');
   if (!shell) return;
@@ -593,8 +634,12 @@ $('#sidebar-backdrop')?.addEventListener('click', () => {
   updateSidebarStateUI();
 });
 
-// Đảm bảo mặc định ban đầu danh sách chức năng luôn ẩn đi
-$('#app-view')?.classList.add('sidebar-hidden');
+// Trên mobile/tablet (< 992px) đóng sidebar mặc định; trên PC/Desktop (>= 992px) mở sẵn danh sách chức năng
+if (window.innerWidth < 992) {
+  $('#app-view')?.classList.add('sidebar-hidden');
+} else {
+  $('#app-view')?.classList.remove('sidebar-hidden');
+}
 updateSidebarStateUI();
 
 $$('#nav-menu .nav-item').forEach((btn) => {
@@ -1226,7 +1271,7 @@ async function renderTasks() {
                       ${t.makhachhang ? `<div class="muted" style="font-size:11px;margin-top:2px">Mã: ${esc(t.makhachhang)}</div>` : ''}
                     </td>
                     <td>
-                      <div style="font-weight:600;color:#f8fafc">${esc(t.noidung)}</div>
+                      <div style="font-weight:600;color:var(--text)">${esc(t.noidung)}</div>
                       ${t.ghichu ? `<div class="muted" style="font-size:12px;margin-top:4px">${esc(t.ghichu)}</div>` : ''}
                       ${t.mucuutien ? `
                         <span class="badge ${t.mucuutien === 'Khẩn cấp' ? 'badge-red' : t.mucuutien === 'Cao' ? 'badge-amber' : 'badge-blue'}" style="margin-top:5px">
@@ -1235,7 +1280,7 @@ async function renderTasks() {
                       ` : ''}
                     </td>
                     <td>
-                      <span style="font-weight:600;color:#e2e8f0">${esc(t.tennguoithuchien || '-')}</span>
+                      <span style="font-weight:600;color:var(--text)">${esc(t.tennguoithuchien || '-')}</span>
                     </td>
                     <td>
                       <span class="badge badge-amber" style="font-weight:700">
@@ -1243,7 +1288,7 @@ async function renderTasks() {
                       </span>
                     </td>
                     <td>
-                      <span style="font-size:13px;color:#cbd5e1;font-weight:500">${fmtDateOnly(t.ngaytao)}</span>
+                      <span style="font-size:13px;color:var(--text-secondary);font-weight:500">${fmtDateOnly(t.ngaytao)}</span>
                     </td>
                     <td>
                       <span style="color:#94a3b8">${esc(t.tennguoitao || '-')}</span>
@@ -1280,7 +1325,7 @@ async function renderTasks() {
           </table>
         </div>
         <div class="task-footer-stats" style="margin-top:12px;display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:12.5px;flex-wrap:wrap;gap:8px">
-          <span>Tìm thấy: <strong style="color:#f8fafc">${items.length}</strong> công việc</span>
+          <span>Tìm thấy: <strong style="color:var(--text)">${items.length}</strong> công việc</span>
           <span style="font-size:11.5px">Trạng thái: <strong>${$('#task-status-filter option:checked')?.text || ''}</strong></span>
         </div>
       `;
@@ -1377,7 +1422,7 @@ async function renderKtvTime() {
           <h3 style="font-size:17px">Thống kê Giờ làm Kỹ thuật viên (Time KTV)</h3>
           <p class="muted" style="margin:4px 0 0;font-size:12.5px">Mỗi kỹ thuật viên hiển thị trên một form riêng biệt với đầy đủ thông tin</p>
         </div>
-        <div class="view-mode-toggle" style="display:inline-flex;background:rgba(15,23,42,0.6);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:3px;gap:3px">
+        <div class="view-mode-toggle">
           <button type="button" class="view-mode-btn active-mode" id="btn-view-cards" title="Xem dạng Form riêng từng nhân viên">
             <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
@@ -1553,8 +1598,8 @@ async function renderKtvTime() {
             </div>
           `}
           <div class="task-footer-stats" style="margin-top:16px;display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:12.5px;flex-wrap:wrap;gap:8px">
-            <span>Tìm thấy: <strong style="color:#f8fafc">${items.length}</strong> kỹ thuật viên</span>
-            <span>Khoảng ngày duyệt: <strong style="color:#f8fafc">${fmtDateOnly(from)} ➜ ${fmtDateOnly(to)}</strong></span>
+            <span>Tìm thấy: <strong style="color:var(--text)">${items.length}</strong> kỹ thuật viên</span>
+            <span>Khoảng ngày duyệt: <strong style="color:var(--text)">${fmtDateOnly(from)} ➜ ${fmtDateOnly(to)}</strong></span>
           </div>
         `;
       } else {
@@ -1585,7 +1630,7 @@ async function renderKtvTime() {
                             ${esc((nv.hoten || 'KT').slice(0, 2).toUpperCase())}
                           </div>
                           <div>
-                            <strong style="color:#f8fafc;font-size:14px">${esc(nv.hoten)}</strong>
+                            <strong style="color:var(--text);font-size:14px">${esc(nv.hoten)}</strong>
                             <div class="muted" style="font-size:11.5px">${esc(nv.dienthoai || nv.tendangnhap || '')}</div>
                           </div>
                         </div>
@@ -1600,7 +1645,7 @@ async function renderKtvTime() {
                       <td>
                         <div class="ktv-progress-wrapper">
                           <div style="display:flex;justify-content:space-between;font-size:11.5px;font-weight:600">
-                            <span style="color:#cbd5e1">${nv.hieusuat}%</span>
+                            <span style="color:var(--text-secondary)">${nv.hieusuat}%</span>
                             <span style="color:${nv.chenhlech >= 0 ? '#34d399' : '#f87171'}">
                               ${nv.chenhlech > 0 ? '+' : ''}${nv.chenhlech} h
                             </span>
@@ -1623,8 +1668,8 @@ async function renderKtvTime() {
             </table>
           </div>
           <div class="task-footer-stats" style="margin-top:12px;display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:12.5px;flex-wrap:wrap;gap:8px">
-            <span>Tìm thấy: <strong style="color:#f8fafc">${items.length}</strong> kỹ thuật viên</span>
-            <span>Khoảng ngày duyệt: <strong style="color:#f8fafc">${fmtDateOnly(from)} ➜ ${fmtDateOnly(to)}</strong></span>
+            <span>Tìm thấy: <strong style="color:var(--text)">${items.length}</strong> kỹ thuật viên</span>
+            <span>Khoảng ngày duyệt: <strong style="color:var(--text)">${fmtDateOnly(from)} ➜ ${fmtDateOnly(to)}</strong></span>
           </div>
         `;
       }
@@ -1739,7 +1784,7 @@ async function renderCustomerSearch() {
     <div class="card hidden" style="margin-top:16px" id="care-detail-card">
       <div class="card-header" style="flex-wrap:wrap;gap:12px">
         <div>
-          <h3 style="font-size:16px">Chi tiết Chăm sóc Khách hàng: <span id="care-selected-title" style="color:#38bdf8;font-weight:700">Chưa chọn khách hàng</span></h3>
+          <h3 style="font-size:16px">Chi tiết Chăm sóc Khách hàng: <span id="care-selected-title" style="color:var(--primary);font-weight:700">Chưa chọn khách hàng</span></h3>
         </div>
         <span class="badge badge-amber" id="care-count-badge">0 lần chăm sóc</span>
       </div>
@@ -1808,7 +1853,7 @@ async function renderCustomerSearch() {
                   <td><span class="badge badge-blue">${esc(c.tenhinhthuc || 'Chăm sóc')}</span></td>
                   <td><strong>${esc(c.tennhanvien || '-')}</strong></td>
                   <td>
-                    <div style="font-weight:500;color:#f1f5f9;line-height:1.4">${esc(c.noidungchamsoc || c.ghichu || '-')}</div>
+                    <div style="font-weight:500;color:var(--text);line-height:1.5">${esc(c.noidungchamsoc || c.ghichu || '-')}</div>
                   </td>
                 </tr>
               `).join('') : `
@@ -1889,19 +1934,19 @@ async function renderCustomerSearch() {
                     </td>
                     <td style="text-align:center;font-weight:700;color:#94a3b8">${kh.stt}</td>
                     <td>
-                      <span class="badge badge-outline" style="font-weight:700;color:#38bdf8">
+                      <span class="badge badge-blue" style="font-weight:700">
                         ${esc(kh.makhachhang || '-')}
                       </span>
                     </td>
                     <td>
-                      <strong style="color:#f8fafc;font-size:14px">${esc(kh.tenkhachhang)}</strong>
+                      <strong style="color:var(--text);font-size:14px">${esc(kh.tenkhachhang)}</strong>
                       ${kh.email ? `<div class="muted" style="font-size:11px">${esc(kh.email)}</div>` : ''}
                     </td>
                     <td>
-                      <strong style="color:#34d399">${esc(kh.dienthoai || '-')}</strong>
+                      <strong style="color:var(--text);font-weight:600">${esc(kh.dienthoai || '-')}</strong>
                     </td>
                     <td>
-                      <div style="font-size:12.5px;color:#cbd5e1">${esc(kh.diachi || '-')}</div>
+                      <div style="font-size:12.5px;color:var(--text-secondary)">${esc(kh.diachi || '-')}</div>
                     </td>
                     <td>
                       <span class="badge badge-blue">${esc(kh.tenloaikhachhang || 'Khách hàng')}</span>
@@ -2090,7 +2135,7 @@ async function renderSalesStats() {
           </div>
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             <div class="sales-quick-search">
-              <svg viewBox="0 0 20 20" fill="currentColor">
+              <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
                 <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
               </svg>
               <input type="text" id="staff-search-input" placeholder="Tìm nhanh nhân viên..." />
@@ -2109,7 +2154,7 @@ async function renderSalesStats() {
       <div class="card-header" style="flex-wrap:wrap;gap:12px;justify-content:space-between">
         <div>
           <h3 style="font-size:16px;display:flex;align-items:center;gap:8px;margin:0">
-            <span>📋</span> Chi tiết Khách hàng: <span id="sales-detail-title" style="color:#38bdf8;font-weight:700">Chưa chọn mục nào</span>
+            <span>📋</span> Chi tiết Khách hàng: <span id="sales-detail-title" style="color:var(--primary);font-weight:700">Chưa chọn mục nào</span>
           </h3>
           <p class="muted" style="margin:3px 0 0;font-size:12px" id="sales-detail-subtitle">
             Tích chọn sản phẩm dịch vụ hoặc nhân viên ở bảng trên để xem chi tiết
@@ -2117,7 +2162,7 @@ async function renderSalesStats() {
         </div>
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
           <div class="sales-quick-search" id="detail-search-box" style="display:none">
-            <svg viewBox="0 0 20 20" fill="currentColor">
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
               <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
             </svg>
             <input type="text" id="cust-detail-search-input" placeholder="Lọc khách hàng, địa chỉ..." />
@@ -2160,10 +2205,10 @@ async function renderSalesStats() {
               <tr>
                 <td style="text-align:center;font-weight:700;color:#94a3b8">${c.stt || (idx + 1)}</td>
                 <td>
-                  <strong style="color:#f8fafc;font-size:14px;letter-spacing:-0.2px">${esc(c.tenkhachhang)}</strong>
+                  <strong style="color:var(--text);font-size:14px;letter-spacing:-0.2px">${esc(c.tenkhachhang)}</strong>
                 </td>
                 <td>
-                  <span style="color:#cbd5e1;font-size:12.5px;line-height:1.4">${esc(c.diachi || '-')}</span>
+                  <span style="color:var(--text-secondary);font-size:12.5px;line-height:1.4">${esc(c.diachi || '-')}</span>
                 </td>
                 <td class="nowrap-money" style="text-align:right;font-weight:700;color:#34d399;font-size:14.5px">
                   ${fmtMoney(c.sotien)}
@@ -2183,7 +2228,7 @@ async function renderSalesStats() {
       <!-- BÊN DƯỚI DANH SÁCH CÓ TỔNG TIỀN -->
       <div class="sales-total-footer">
         <span style="color:var(--muted)">
-          Tổng số: <strong style="color:#f8fafc">${items.length}</strong> khách hàng
+          Tổng số: <strong style="color:var(--text)">${items.length}</strong> khách hàng
         </span>
         <div class="sales-total-box">
           <span style="color:#94a3b8;font-weight:600;font-size:13px;letter-spacing:0.5px">TỔNG TIỀN:</span>
@@ -2308,7 +2353,7 @@ async function renderSalesStats() {
                         ${esc((nv.hoten || 'NV').slice(0, 2).toUpperCase())}
                       </div>
                       <div style="flex:1;min-width:0">
-                        <strong style="color:#f8fafc;font-size:13.5px;display:block">${esc(nv.hoten)}</strong>
+                        <strong style="color:var(--text);font-size:13.5px;display:block">${esc(nv.hoten)}</strong>
                         <div style="display:flex;align-items:center;gap:6px">
                           <div class="sales-progress-bar" style="flex:1">
                             <div class="sales-progress-fill staff" style="width:${pct}%"></div>
@@ -2412,7 +2457,7 @@ async function renderSalesStats() {
                   <tr class="sales-row-clickable ${isSelected ? 'row-selected' : ''}" data-product-id="${esc(p.idloaikhachhang)}" data-product-name="${esc(p.tenloaikhachhang)}">
                     <td style="text-align:center">${rankBadge}</td>
                     <td>
-                      <strong style="color:#f8fafc;font-size:13.5px;display:block">${esc(p.tenloaikhachhang)}</strong>
+                      <strong style="color:var(--text);font-size:13.5px;display:block">${esc(p.tenloaikhachhang)}</strong>
                       <div style="display:flex;align-items:center;gap:6px">
                         <div class="sales-progress-bar" style="flex:1">
                           <div class="sales-progress-fill prod" style="width:${pct}%"></div>
