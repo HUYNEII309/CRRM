@@ -24,7 +24,7 @@ router.get('/all', async (req, res) => {
       sanPhamDichVu,
       nhanVien,
     ] = await Promise.all([
-      pool.request().query('SELECT idloaikhachhang, tenloaikhachhang FROM dbo.tblloaikhachhang ORDER BY tenloaikhachhang'),
+      pool.request().execute('dbo.tblloaikhachhang_SelectAll'),
       pool.request().query('SELECT idhinhthuckhachhang, ten FROM dbo.tblhinhthuckhachhang ORDER BY ten'),
       pool.request().query('SELECT idhinhthucchamsoc, tenhinhthuc FROM dbo.tblhinhthucchamsoc ORDER BY tenhinhthuc'),
       pool.request().query('SELECT iddanhgiakhachhang, tendanhgiakhachhang FROM dbo.tbldanhgiakhachhang ORDER BY tendanhgiakhachhang'),
@@ -56,6 +56,17 @@ router.get('/all', async (req, res) => {
       sanPhamDichVu: sanPhamDichVu.recordset,
       nhanVien: nhanVien.recordset,
     });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// Chạy Stored Procedure tblloaikhachhang_SelectAll để lấy danh sách Loại sản phẩm / dịch vụ
+router.get('/loaikhachhang', async (req, res) => {
+  try {
+    const pool = await getPool();
+    const result = await pool.request().execute('dbo.tblloaikhachhang_SelectAll');
+    return res.json(result.recordset || []);
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }

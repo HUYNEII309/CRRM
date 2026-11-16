@@ -162,52 +162,143 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+function normalizeStr(val) {
+  if (val === null || val === undefined) return '';
+  return String(val).trim().normalize();
+}
+
+function normalizePhone(val) {
+  if (!val) return '';
+  let p = normalizeStr(val);
+  p = p.replace(/\s+/g, '');
+  if (p.startsWith('+84')) {
+    p = '0' + p.slice(3);
+  }
+  p = p.replace(/\+84/g, '0');
+  return p;
+}
+
+function getTodayYyyyMmDd() {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  return `${yyyy}${mm}${dd}`;
+}
+
+async function getEndCustomerId(pool, todayStr) {
+  try {
+    const req = pool.request();
+    req.input('idkhachhang', sql.VarChar(12), todayStr);
+    const result = await req.execute('dbo.tblkhachhang_SelectEnd');
+    if (result.recordset && result.recordset.length > 0) {
+      return String(result.recordset[0].idkhachhang || '').trim();
+    }
+  } catch (err) {
+    console.error('Error executing tblkhachhang_SelectEnd:', err.message);
+    try {
+      const qRes = await pool
+        .request()
+        .input('prefix', sql.VarChar(12), todayStr)
+        .query('SELECT TOP 1 idkhachhang FROM dbo.tblkhachhang WHERE idkhachhang LIKE @prefix + \'%\' ORDER BY idkhachhang DESC');
+      if (qRes.recordset && qRes.recordset.length > 0) {
+        return String(qRes.recordset[0].idkhachhang || '').trim();
+      }
+    } catch (_) {}
+  }
+  return '';
+}
+
+function getNextCustomerId(endId, todayStr) {
+  let seq = 0;
+  try {
+    if (endId && endId.length >= 8) {
+      const s = endId.substring(8);
+      const num = parseInt(s, 10);
+      if (!Number.isNaN(num)) {
+        seq = num + 1;
+      }
+    }
+  } catch (_) {
+    seq = 0;
+  }
+  return `${todayStr}${String(seq).padStart(4, '0')}`;
+}
+
 router.post('/', async (req, res) => {
   const b = req.body || {};
-  if (!b.tenkhachhang) {
+  const tenkhachhang = normalizeStr(b.tenkhachhang);
+  if (!tenkhachhang) {
     return res.status(400).json({ error: 'Tên khách hàng không được để trống.' });
   }
 
+  const diachi = normalizeStr(b.diachi) || null;
+  const dienthoai = normalizePhone(b.dienthoai) || null;
+  const email = normalizeStr(b.email) || null;
+  const ghichu = normalizeStr(b.ghichu) || null;
+  const idloaikhachhang = normalizeStr(b.idloaikhachhang) || null;
+  const tennguoilienlac = normalizeStr(b.tennguoilienlac) || null;
+  const dienthoainguoilienlac = normalizeStr(b.dienthoainguoilienlac) || null;
+  const emailnguoilienlac = normalizeStr(b.emailnguoilienlac) || null;
+  const idnhanvien = normalizeStr(b.idnhanvien) || (req.user && req.user.idnhanvien) || null;
+
   try {
     const pool = await getPool();
-    const idkhachhang = await generateNextId(pool, 'tblkhachhang', 'idkhachhang');
+    const todayStr = getTodayYyyyMmDd();
+    const endId = await getEndCustomerId(pool, todayStr);
+    const idkhachhang = getNextCustomerId(endId, todayStr);
 
-    await pool
-      .request()
-      .input('idkhachhang', sql.VarChar(12), idkhachhang)
-      .input('tenkhachhang', sql.NVarChar(250), b.tenkhachhang)
-      .input('diachi', sql.NVarChar(sql.MAX), b.diachi || null)
-      .input('dienthoai', sql.NVarChar(sql.MAX), b.dienthoai || null)
-      .input('email', sql.NVarChar(250), b.email || null)
-      .input('ghichu', sql.NVarChar(sql.MAX), b.ghichu || null)
-      .input('idloaikhachhang', sql.VarChar(12), b.idloaikhachhang || null)
-      .input('tennguoilienlac', sql.NVarChar(250), b.tennguoilienlac || null)
-      .input('dienthoainguoilienlac', sql.NVarChar(sql.MAX), b.dienthoainguoilienlac || null)
-      .input('emailnguoilienlac', sql.NVarChar(250), b.emailnguoilienlac || null)
-      .input('idnhanvien', sql.VarChar(12), b.idnhanvien || req.user.idnhanvien)
-      .input('idtinhthanhpho', sql.VarChar(12), b.idtinhthanhpho || null)
-      .input('idquanhuyen', sql.VarChar(12), b.idquanhuyen || null)
-      .input('idphuongxa', sql.VarChar(12), b.idphuongxa || null)
-      .input('dienthoaisms', sql.NVarChar(250), b.dienthoaisms || b.dienthoai || null)
-      .input('idhinhthuckhachhang', sql.VarChar(12), b.idhinhthuckhachhang || null)
-      .query(`
-        INSERT INTO dbo.tblkhachhang (
-          idkhachhang, tenkhachhang, diachi, dienthoai, email, ghichu,
-          idloaikhachhang, tennguoilienlac, dienthoainguoilienlac, emailnguoilienlac,
-          ngaynhap, idnhanvien, trangthaisudung, idtinhthanhpho, idquanhuyen, idphuongxa,
-          dienthoaisms, idhinhthuckhachhang
-        )
-        VALUES (
-          @idkhachhang, @tenkhachhang, @diachi, @dienthoai, @email, @ghichu,
-          @idloaikhachhang, @tennguoilienlac, @dienthoainguoilienlac, @emailnguoilienlac,
-          GETDATE(), @idnhanvien, 1, @idtinhthanhpho, @idquanhuyen, @idphuongxa,
-          @dienthoaisms, @idhinhthuckhachhang
-        )
-      `);
+    const now = new Date();
+    const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    const reqSp = pool.request();
+    reqSp.input('idkhachhang', sql.VarChar(12), idkhachhang);
+    reqSp.input('tenkhachhang', sql.NVarChar(250), tenkhachhang);
+    reqSp.input('diachi', sql.NVarChar(sql.MAX), diachi);
+    reqSp.input('dienthoai', sql.NVarChar(sql.MAX), dienthoai);
+    reqSp.input('email', sql.NVarChar(250), email);
+    reqSp.input('ghichu', sql.NVarChar(sql.MAX), ghichu);
+    reqSp.input('idloaikhachhang', sql.VarChar(12), idloaikhachhang);
+    reqSp.input('tennguoilienlac', sql.NVarChar(250), tennguoilienlac);
+    reqSp.input('dienthoainguoilienlac', sql.NVarChar(sql.MAX), dienthoainguoilienlac);
+    reqSp.input('emailnguoilienlac', sql.NVarChar(250), emailnguoilienlac);
+    reqSp.input('ngaynhap', sql.DateTime, todayDate);
+    reqSp.input('idnhanvien', sql.VarChar(12), idnhanvien);
+
+    try {
+      await reqSp.execute('dbo.tblkhachhang_Insert');
+    } catch (spErr) {
+      console.error('Error executing tblkhachhang_Insert:', spErr.message);
+      // Fallback query phòng trường hợp môi trường chưa nạp đủ SP
+      await pool.request()
+        .input('idkhachhang', sql.VarChar(12), idkhachhang)
+        .input('tenkhachhang', sql.NVarChar(250), tenkhachhang)
+        .input('diachi', sql.NVarChar(sql.MAX), diachi)
+        .input('dienthoai', sql.NVarChar(sql.MAX), dienthoai)
+        .input('email', sql.NVarChar(250), email)
+        .input('ghichu', sql.NVarChar(sql.MAX), ghichu)
+        .input('idloaikhachhang', sql.VarChar(12), idloaikhachhang)
+        .input('tennguoilienlac', sql.NVarChar(250), tennguoilienlac)
+        .input('dienthoainguoilienlac', sql.NVarChar(sql.MAX), dienthoainguoilienlac)
+        .input('emailnguoilienlac', sql.NVarChar(250), emailnguoilienlac)
+        .input('ngaynhap', sql.DateTime, todayDate)
+        .input('idnhanvien', sql.VarChar(12), idnhanvien)
+        .query(`
+          INSERT INTO dbo.tblkhachhang (
+            idkhachhang, tenkhachhang, diachi, dienthoai, email, ghichu,
+            idloaikhachhang, tennguoilienlac, dienthoainguoilienlac, emailnguoilienlac,
+            ngaynhap, idnhanvien, trangthaisudung
+          ) VALUES (
+            @idkhachhang, @tenkhachhang, @diachi, @dienthoai, @email, @ghichu,
+            @idloaikhachhang, @tennguoilienlac, @dienthoainguoilienlac, @emailnguoilienlac,
+            @ngaynhap, @idnhanvien, 1
+          )
+        `);
+    }
 
     return res.status(201).json({ idkhachhang, message: 'Thêm khách hàng thành công.' });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: 'Không thêm khách hàng: ' + err.message });
   }
 });
 
@@ -215,24 +306,30 @@ router.put('/:id', async (req, res) => {
   const b = req.body || {};
   try {
     const pool = await getPool();
+    const tenkhachhang = normalizeStr(b.tenkhachhang);
+    const diachi = normalizeStr(b.diachi) || null;
+    const dienthoai = normalizePhone(b.dienthoai) || null;
+    const email = normalizeStr(b.email) || null;
+    const ghichu = normalizeStr(b.ghichu) || null;
+    const idloaikhachhang = normalizeStr(b.idloaikhachhang) || null;
+    const tennguoilienlac = normalizeStr(b.tennguoilienlac) || null;
+    const dienthoainguoilienlac = normalizeStr(b.dienthoainguoilienlac) || null;
+    const emailnguoilienlac = normalizeStr(b.emailnguoilienlac) || null;
+    const idnhanvien = normalizeStr(b.idnhanvien) || null;
+
     await pool
       .request()
       .input('idkhachhang', sql.VarChar(12), req.params.id)
-      .input('tenkhachhang', sql.NVarChar(250), b.tenkhachhang)
-      .input('diachi', sql.NVarChar(sql.MAX), b.diachi || null)
-      .input('dienthoai', sql.NVarChar(sql.MAX), b.dienthoai || null)
-      .input('email', sql.NVarChar(250), b.email || null)
-      .input('ghichu', sql.NVarChar(sql.MAX), b.ghichu || null)
-      .input('idloaikhachhang', sql.VarChar(12), b.idloaikhachhang || null)
-      .input('tennguoilienlac', sql.NVarChar(250), b.tennguoilienlac || null)
-      .input('dienthoainguoilienlac', sql.NVarChar(sql.MAX), b.dienthoainguoilienlac || null)
-      .input('emailnguoilienlac', sql.NVarChar(250), b.emailnguoilienlac || null)
-      .input('idnhanvien', sql.VarChar(12), b.idnhanvien || null)
-      .input('idtinhthanhpho', sql.VarChar(12), b.idtinhthanhpho || null)
-      .input('idquanhuyen', sql.VarChar(12), b.idquanhuyen || null)
-      .input('idphuongxa', sql.VarChar(12), b.idphuongxa || null)
-      .input('dienthoaisms', sql.NVarChar(250), b.dienthoaisms || null)
-      .input('idhinhthuckhachhang', sql.VarChar(12), b.idhinhthuckhachhang || null)
+      .input('tenkhachhang', sql.NVarChar(250), tenkhachhang)
+      .input('diachi', sql.NVarChar(sql.MAX), diachi)
+      .input('dienthoai', sql.NVarChar(sql.MAX), dienthoai)
+      .input('email', sql.NVarChar(250), email)
+      .input('ghichu', sql.NVarChar(sql.MAX), ghichu)
+      .input('idloaikhachhang', sql.VarChar(12), idloaikhachhang)
+      .input('tennguoilienlac', sql.NVarChar(250), tennguoilienlac)
+      .input('dienthoainguoilienlac', sql.NVarChar(sql.MAX), dienthoainguoilienlac)
+      .input('emailnguoilienlac', sql.NVarChar(250), emailnguoilienlac)
+      .input('idnhanvien', sql.VarChar(12), idnhanvien)
       .query(`
         UPDATE dbo.tblkhachhang
         SET tenkhachhang = @tenkhachhang,
@@ -244,12 +341,7 @@ router.put('/:id', async (req, res) => {
             tennguoilienlac = @tennguoilienlac,
             dienthoainguoilienlac = @dienthoainguoilienlac,
             emailnguoilienlac = @emailnguoilienlac,
-            idnhanvien = @idnhanvien,
-            idtinhthanhpho = @idtinhthanhpho,
-            idquanhuyen = @idquanhuyen,
-            idphuongxa = @idphuongxa,
-            dienthoaisms = @dienthoaisms,
-            idhinhthuckhachhang = @idhinhthuckhachhang
+            idnhanvien = @idnhanvien
         WHERE idkhachhang = @idkhachhang
       `);
 

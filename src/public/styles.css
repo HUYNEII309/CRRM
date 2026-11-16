@@ -866,6 +866,7 @@ tr:hover td {
 .modal-body {
   padding: 24px;
   overflow-y: auto;
+  overflow-x: hidden;
   color: var(--text);
 }
 
@@ -1690,15 +1691,81 @@ tr:hover td {
   border: 1.5px solid var(--border);
   background: var(--surface-subtle);
   color: var(--text);
-  padding: 0 44px;
+  padding: 0 16px 0 44px;
   min-height: 46px;
   font-size: 14px;
   transition: all var(--trans-fast);
 }
 
+.input-wrapper:has(.btn-toggle-pwd) input {
+  padding-right: 44px;
+}
+
 .input-wrapper input:focus {
   outline: none;
   background: var(--surface);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px var(--ring-focus);
+}
+
+.input-wrapper select {
+  width: 100%;
+  border-radius: 14px;
+  border: 1.5px solid var(--border);
+  background-color: var(--surface-subtle);
+  color: var(--text);
+  padding: 0 38px 0 44px;
+  min-height: 46px;
+  font-size: 14px;
+  font-family: inherit;
+  transition: all var(--trans-fast);
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 16px 16px;
+}
+
+.input-wrapper select:focus {
+  outline: none;
+  background-color: var(--surface);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px var(--ring-focus);
+}
+
+.input-wrapper select option {
+  background-color: var(--surface);
+  color: var(--text);
+}
+
+.input-wrapper.is-textarea {
+  align-items: flex-start;
+}
+
+.input-wrapper.is-textarea .input-icon {
+  top: 14px;
+}
+
+.input-wrapper textarea {
+  width: 100%;
+  border-radius: 14px;
+  border: 1.5px solid var(--border);
+  background-color: var(--surface-subtle);
+  color: var(--text);
+  padding: 12px 16px 12px 44px;
+  min-height: 84px;
+  font-size: 14px;
+  line-height: 1.55;
+  font-family: inherit;
+  resize: vertical;
+  transition: all var(--trans-fast);
+}
+
+.input-wrapper textarea:focus {
+  outline: none;
+  background-color: var(--surface);
   border-color: var(--primary);
   box-shadow: 0 0 0 4px var(--ring-focus);
 }
@@ -2160,11 +2227,500 @@ tr:hover td {
   gap: 18px;
 }
 
+/* Customer Search Table Layout & Column Safeguards */
+.cs-table {
+  min-width: 1150px;
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.cs-col-select {
+  width: 48px;
+  text-align: center;
+}
+.cs-col-stt {
+  width: 52px;
+  text-align: center;
+}
+.cs-col-code {
+  width: 105px;
+  white-space: nowrap;
+}
+.cs-col-name {
+  width: 210px;
+  word-break: break-word;
+}
+.cs-col-phone {
+  width: 210px;
+  word-break: break-word;
+}
+.cs-col-address {
+  width: 310px;
+  word-break: break-word;
+  line-height: 1.45;
+}
+.cs-col-type {
+  width: 150px;
+}
+.cs-col-type .badge {
+  white-space: normal !important;
+  word-break: break-word !important;
+  line-height: 1.35;
+  text-align: left;
+  padding: 4px 9px;
+  display: inline-block;
+  max-width: 100%;
+}
+.cs-col-staff {
+  width: 155px;
+  white-space: nowrap;
+}
+
+.cs-table th,
+.cs-table td {
+  vertical-align: top !important;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* Phone Number Chips for Multiple Phone Numbers */
+.phone-chips-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.phone-chip {
+  display: inline-block;
+  max-width: 100%;
+  box-sizing: border-box;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  white-space: normal !important;
+  word-break: break-word !important;
+  overflow-wrap: anywhere !important;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.2px;
+  transition: all var(--trans-fast);
+}
+.phone-chip:hover {
+  background: var(--primary-light);
+  border-color: var(--primary-light-border);
+  color: var(--primary);
+}
+
+/* Copyable Cells in Customer Search Table */
+.cs-copyable-cell {
+  cursor: copy !important;
+  position: relative;
+  transition: all var(--trans-fast);
+  user-select: text;
+}
+
+.cs-copyable-cell:hover {
+  filter: brightness(0.95);
+  box-shadow: 0 0 0 2px var(--primary-light-border);
+}
+
+.cs-copy-icon {
+  display: inline-block;
+  opacity: 0.45;
+  color: currentColor;
+  margin-left: 3px;
+  vertical-align: middle;
+  flex-shrink: 0;
+  transition: opacity var(--trans-fast), transform var(--trans-fast);
+}
+
+.cs-copyable-cell:hover .cs-copy-icon {
+  opacity: 1;
+  color: var(--primary);
+  transform: scale(1.15);
+}
+
+.copied-highlight {
+  animation: copyPulse 0.5s ease;
+  background-color: var(--success-bg) !important;
+  border-color: var(--success) !important;
+  color: var(--success-text) !important;
+}
+
+@keyframes copyPulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+
+.cs-address-text {
+  border-radius: var(--radius-sm);
+  padding: 3px 6px;
+  margin: -3px -6px;
+  display: inline-block;
+  max-width: 100%;
+}
+
+.cs-address-text:hover {
+  background-color: var(--primary-light);
+  color: var(--primary) !important;
+}
+
+/* Modal Chi tiết Chăm sóc Khách hàng */
+.modal-card.modal-care-detail {
+  max-width: 980px;
+  width: 95vw;
+}
+
+/* Care Modal Table Styles - Text wrap and no horizontal scroll */
+.care-table-scroll-container {
+  max-height: 58vh;
+  overflow-y: auto;
+  overflow-x: hidden !important;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.care-detail-table {
+  width: 100% !important;
+  min-width: 0 !important;
+  table-layout: fixed !important;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.care-detail-table th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--surface-subtle);
+  font-size: 12.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--text-secondary);
+  padding: 12px 14px;
+  border-bottom: 1.5px solid var(--border);
+  box-sizing: border-box;
+}
+
+.care-detail-table td {
+  padding: 12px 14px;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border);
+  box-sizing: border-box;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.care-detail-table tr:last-child td {
+  border-bottom: none;
+}
+
+.care-detail-table tr:hover td {
+  background-color: var(--primary-light);
+}
+
+.care-note-cell {
+  word-break: break-word !important;
+  overflow-wrap: anywhere !important;
+  white-space: normal !important;
+}
+
+.care-note-cell-text {
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word !important;
+  overflow-wrap: anywhere !important;
+  overflow: visible;
+  max-width: 100%;
+}
+
+.care-date-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+/* Modal Thêm Khách Hàng Mới (Modern Login Style) */
+.modal-card.modal-customer-form {
+  max-width: 820px;
+  width: 95vw;
+}
+
+.cust-modal-form {
+  display: flex;
+  flex-direction: column;
+}
+
+.cust-modal-hero {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(99, 102, 241, 0.05) 100%);
+  border: 1px solid rgba(59, 130, 246, 0.18);
+  border-radius: var(--radius-lg);
+  margin-bottom: 20px;
+}
+
+.cust-modal-hero-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+  flex-shrink: 0;
+}
+
+.cust-modal-hero-text h4 {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-heading);
+  margin-bottom: 4px;
+}
+
+.cust-modal-hero-text p {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  margin: 0;
+}
+
+.cust-form-section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 18px 0 12px 0;
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-secondary);
+}
+
+.cust-form-section-title::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.cust-form-section-title:first-child {
+  margin-top: 0;
+}
+
+.cust-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px 16px;
+}
+
+.cust-col-full {
+  grid-column: 1 / -1;
+}
+
+.cust-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.cust-modal-actions .btn {
+  padding: 10px 22px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 12px;
+}
+
+@media (max-width: 640px) {
+  .cust-form-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .cust-modal-hero {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+}
+
+/* Customer Search Card Footer with Add Customer Button */
+.cs-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 13px 18px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-subtle);
+  border-bottom-left-radius: var(--radius-lg);
+  border-bottom-right-radius: var(--radius-lg);
+}
+
+.cs-footer-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.cs-footer-hint svg {
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+/* Modern Pagination Bar for Customer Search */
+.cs-pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 14px 4px 6px;
+  border-top: 1px solid var(--border);
+  margin-top: 14px;
+}
+
+.cs-pagination-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.cs-pagesize-select-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cs-pagesize-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.cs-pagesize-select {
+  height: 32px;
+  padding: 0 28px 0 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background-color: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  transition: border-color var(--trans-fast), box-shadow var(--trans-fast);
+}
+.cs-pagesize-select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--ring-focus);
+}
+
+.cs-page-summary {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.cs-page-summary strong {
+  color: var(--text);
+}
+
+.cs-pagination-right {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.page-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  transition: all var(--trans-fast);
+}
+
+.page-btn:hover:not(:disabled):not(.active) {
+  background: var(--surface-hover);
+  border-color: var(--border-hover);
+  color: var(--text-heading);
+}
+
+.page-btn.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(79, 70, 229, 0.3);
+}
+
+.page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.page-ellipsis {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 32px;
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 13px;
+}
+
 .cust-row-selectable {
   cursor: pointer;
   transition: background-color var(--trans-fast);
 }
 .cust-row-selectable:hover td {
+  background-color: var(--primary-light) !important;
+}
+.cust-row-selectable.row-selected td {
   background-color: var(--primary-light) !important;
 }
 
@@ -2511,6 +3067,33 @@ tr:hover td {
 
   .btn:not(.btn-sm):not(.icon-btn) {
     min-height: 42px;
+  }
+
+  /* Customer Search Pagination on Mobile */
+  .cs-pagination-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  .cs-pagination-left {
+    justify-content: space-between;
+    width: 100%;
+  }
+  .cs-pagination-right {
+    justify-content: center;
+    width: 100%;
+  }
+
+  /* Customer Search Footer on Mobile */
+  .cs-card-footer {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 12px;
+  }
+  .cs-card-footer button {
+    width: 100%;
+    justify-content: center;
   }
 
   /* Topbar on Mobile */
