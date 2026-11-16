@@ -132,6 +132,8 @@ router.get('/', async (req, res) => {
       items.sort((a, b) => b.tongdukien - a.tongdukien);
     } else if (sort === 'dukien_asc') {
       items.sort((a, b) => a.tongdukien - b.tongdukien);
+    } else if (sort === 'hieusuat_desc') {
+      items.sort((a, b) => b.hieusuat - a.hieusuat || b.tongthucte - a.tongthucte);
     } else if (sort === 'name') {
       items.sort((a, b) => (a.hoten || '').localeCompare(b.hoten || ''));
     } else {

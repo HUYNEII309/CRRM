@@ -960,7 +960,7 @@ async function openCustomerForm(id = null, initialData = null) {
     id && c.idnhanvien ? c.idnhanvien : state.user?.idnhanvien || "";
 
   openModal(
-    id ? "Cập nhật Hồ sơ Khách hàng" : "Thêm Khách hàng mới",
+    id ? "Cập nhật Thông tin Khách hàng" : "Thêm Khách hàng mới",
     `
     <form id="cust-form" class="cust-modal-form">
       <div class="cust-form-grid">
@@ -1163,7 +1163,7 @@ async function openCustomerDetail(id) {
   const data = await api(`/api/customers/${id}`);
   const c = data.customer;
   openModal(
-    `Hồ sơ 360°: ${c.tenkhachhang}`,
+    `Chi tiết Khách hàng: ${c.tenkhachhang}`,
     `
     <div style="margin-bottom:14px">
       <strong>Mã KH:</strong> ${esc(c.makhachhang)} | <strong>SĐT:</strong> ${esc(c.dienthoai)} | <strong>Email:</strong> ${esc(c.email)}<br/>
@@ -1817,36 +1817,87 @@ async function renderTasks() {
 }
 
 // ==================== THỐNG KÊ TIME KTV ====================
+// ==================== THỐNG KÊ TIME KTV (GHÉP A + B) ====================
 async function renderKtvTime() {
   const el = $("#page-content");
   const { firstDayStr, lastDayStr } = getCurrentMonthRange();
 
+  // Helper tính khoảng ngày tháng trước
+  const getPrevMonthRange = () => {
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastDay = new Date(now.getFullYear(), now.getMonth(), 0);
+    const fmt = (d) => {
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
+      return `${yyyy}-${mm}-${dd}`;
+    };
+    return { firstDayStr: fmt(firstDay), lastDayStr: fmt(lastDay) };
+  };
+
+  // Helper tính khoảng ngày tuần này (Thứ 2 ➜ Chủ nhật)
+  const getCurrentWeekRange = () => {
+    const now = new Date();
+    const day = now.getDay();
+    const diffToMon = now.getDate() - day + (day === 0 ? -6 : 1);
+    const mon = new Date(now);
+    mon.setDate(diffToMon);
+    const sun = new Date(now);
+    sun.setDate(diffToMon + 6);
+    const fmt = (d) => {
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
+      return `${yyyy}-${mm}-${dd}`;
+    };
+    return { firstDayStr: fmt(mon), lastDayStr: fmt(sun) };
+  };
+
   el.innerHTML = `
     <!-- Bảng Thống kê & Bộ lọc -->
-    <div class="card">
-      <div class="card-header" style="flex-wrap:wrap;gap:12px">
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-header" style="flex-wrap:wrap;gap:12px;justify-content:space-between">
         <div>
-          <h3 style="font-size:17px">Thống kê Giờ làm Kỹ thuật viên (Time KTV)</h3>
-          <p class="muted" style="margin:4px 0 0;font-size:12.5px">Mỗi kỹ thuật viên hiển thị trên một form riêng biệt với đầy đủ thông tin</p>
+          <h3 style="font-size:17px;font-weight:800;display:flex;align-items:center;gap:8px">
+            <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color:var(--primary)">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Thống kê Giờ làm Kỹ thuật viên (Time KTV)
+          </h3>
+          <p class="muted" style="margin:3px 0 0;font-size:12.5px">
+            Tổng hợp dữ liệu giờ làm việc thực tế so với định mức dự kiến của các đầu việc cố định & phát sinh
+          </p>
         </div>
+
+        <!-- Chuyển đổi chế độ xem: Bảng đối chiếu (A) & Thẻ hồ sơ (B) -->
         <div class="view-mode-toggle">
-          <button type="button" class="view-mode-btn active-mode" id="btn-view-cards" title="Xem dạng Form riêng từng nhân viên">
+          <button type="button" class="view-mode-btn" id="btn-view-table" title="Xem dạng Bảng đối chiếu chi tiết">
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+            Dạng Bảng (Chuẩn)
+          </button>
+          <button type="button" class="view-mode-btn" id="btn-view-cards" title="Xem dạng Thẻ hồ sơ từng KTV">
             <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
             </svg>
-            Dạng Form riêng
-          </button>
-          <button type="button" class="view-mode-btn" id="btn-view-table" title="Xem dạng Bảng truyền thống">
-            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-            </svg>
-            Dạng Bảng
+            Dạng Thẻ Hồ sơ
           </button>
         </div>
       </div>
 
-      <!-- BỘ LỌC TÌM KIẾM & SẮP XẾP -->
+      <!-- BỘ LỌC TÌM KIẾM, SẮP XẾP & CHIP THỜI GIAN NHANH -->
       <div class="task-filter-panel">
+        <div style="display:flex;align-items:center;gap:6px;width:100%;margin-bottom:4px;flex-wrap:wrap">
+          <span style="font-size:11.5px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;margin-right:4px">Chọn nhanh kỳ:</span>
+          <div class="ktv-quick-chips">
+            <button type="button" class="ktv-quick-chip active" id="chip-this-month" data-range="this-month">Tháng này</button>
+            <button type="button" class="ktv-quick-chip" id="chip-last-month" data-range="last-month">Tháng trước</button>
+            <button type="button" class="ktv-quick-chip" id="chip-this-week" data-range="this-week">Tuần này</button>
+          </div>
+        </div>
+
         <div class="filter-field field-date">
           <label for="ktv-from">Từ ngày duyệt</label>
           <input type="date" id="ktv-from" value="${firstDayStr}" />
@@ -1856,10 +1907,11 @@ async function renderKtvTime() {
           <input type="date" id="ktv-to" value="${lastDayStr}" />
         </div>
         <div class="filter-field field-sort">
-          <label for="ktv-sort">Sắp xếp thời gian</label>
+          <label for="ktv-sort">Sắp xếp theo</label>
           <select id="ktv-sort">
             <option value="thucte_desc" selected>Giờ thực tế: Cao ➜ Thấp</option>
             <option value="thucte_asc">Giờ thực tế: Thấp ➜ Cao</option>
+            <option value="hieusuat_desc">Hiệu suất (%): Cao ➜ Thấp</option>
             <option value="dukien_desc">Giờ dự kiến: Cao ➜ Thấp</option>
             <option value="dukien_asc">Giờ dự kiến: Thấp ➜ Cao</option>
             <option value="name">Tên nhân viên: A ➜ Z</option>
@@ -1867,7 +1919,7 @@ async function renderKtvTime() {
         </div>
         <div class="filter-field flex-grow field-search">
           <label for="ktv-q">Tìm kiếm nhân viên</label>
-          <input type="text" id="ktv-q" placeholder="Nhập tên KTV, số điện thoại..." />
+          <input type="text" id="ktv-q" placeholder="Nhập tên KTV, số điện thoại, mã NV..." />
         </div>
         <div class="filter-actions">
           <button class="btn btn-primary btn-sm" id="ktv-btn-search">
@@ -1881,25 +1933,175 @@ async function renderKtvTime() {
           </button>
         </div>
       </div>
+    </div>
 
-      <!-- DANH SÁCH FORM / BẢNG TIME KTV -->
-      <div id="ktv-table-wrap">
-        <div style="padding:28px;text-align:center;color:var(--muted)">Đang tải thống kê giờ làm kỹ thuật viên...</div>
+    <!-- 4 THẺ KPI TỔNG QUAN TOÀN BỘ ĐỘI NGŨ KTV -->
+    <div class="ktv-kpi-grid" id="ktv-kpi-wrap">
+      <div class="ktv-kpi-card">
+        <div class="kpi-icon-box blue">
+          <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+          </svg>
+        </div>
+        <div class="kpi-content">
+          <span class="kpi-label">KTV HOẠT ĐỘNG</span>
+          <strong class="kpi-val" id="kpi-total-ktv">0 <small style="font-size:12px;font-weight:600">nhân sự</small></strong>
+          <span class="kpi-sub" style="font-size:11.5px;color:var(--text-secondary)">Đã hoàn thành duyệt việc</span>
+        </div>
       </div>
+
+      <div class="ktv-kpi-card">
+        <div class="kpi-icon-box amber">
+          <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+        </div>
+        <div class="kpi-content">
+          <span class="kpi-label">TỔNG GIỜ DỰ KIẾN</span>
+          <strong class="kpi-val" id="kpi-total-dukien" style="color:#b45309">0.0 <small style="font-size:12px;font-weight:600">h</small></strong>
+          <span class="kpi-sub" style="font-size:11.5px;color:var(--text-secondary)">Định mức công việc giao</span>
+        </div>
+      </div>
+
+      <div class="ktv-kpi-card">
+        <div class="kpi-icon-box green">
+          <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+        <div class="kpi-content">
+          <span class="kpi-label">TỔNG GIỜ THỰC TẾ</span>
+          <strong class="kpi-val" id="kpi-total-thucte" style="color:#15803d">0.0 <small style="font-size:12px;font-weight:600">h</small></strong>
+          <span class="kpi-sub" style="font-size:11.5px;color:var(--text-secondary)">Thực tế KTV cống hiến</span>
+        </div>
+      </div>
+
+      <div class="ktv-kpi-card">
+        <div class="kpi-icon-box purple">
+          <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+          </svg>
+        </div>
+        <div class="kpi-content">
+          <span class="kpi-label">HIỆU SUẤT TRUNG BÌNH</span>
+          <strong class="kpi-val" id="kpi-avg-hieusuat" style="color:var(--primary)">0%</strong>
+          <span class="kpi-sub" id="kpi-diff-status" style="font-size:11.5px;font-weight:700">Đang nạp...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- KHUNG DỮ LIỆU CHÍNH (BẢNG ĐỐI CHIẾU HOẶC THẺ HỒ SƠ) -->
+    <div id="ktv-table-wrap">
+      <div style="padding:28px;text-align:center;color:var(--muted)">Đang tải thống kê giờ làm kỹ thuật viên...</div>
     </div>
   `;
 
-  let ktvViewMode = state.ktvViewMode || "cards";
+  // Mặc định là Dạng Bảng đối chiếu (A) theo đề bài yêu cầu "bảng Thống kê Giờ làm KTV"
+  let ktvViewMode = state.ktvViewMode || "table";
 
   const updateToggleButtons = () => {
-    if ($("#btn-view-cards")) {
-      $("#btn-view-cards").className =
-        "view-mode-btn " + (ktvViewMode === "cards" ? "active-mode" : "");
-    }
     if ($("#btn-view-table")) {
       $("#btn-view-table").className =
         "view-mode-btn " + (ktvViewMode === "table" ? "active-mode" : "");
     }
+    if ($("#btn-view-cards")) {
+      $("#btn-view-cards").className =
+        "view-mode-btn " + (ktvViewMode === "cards" ? "active-mode" : "");
+    }
+  };
+
+  // Modal Chi tiết Hồ sơ Năng suất KTV & Đầu việc
+  const openKtvDetailModal = (nv, fromDate, toDate) => {
+    const diffSign = nv.chenhlech > 0 ? "+" : "";
+    const diffClass = nv.chenhlech >= 0 ? "plus" : "minus";
+    const barClass = nv.hieusuat >= 100 ? "high" : (nv.hieusuat >= 90 ? "mid" : "low");
+
+    openModal(
+      `Hồ sơ Năng suất: ${nv.hoten}`,
+      `
+      <div class="ktv-profile-header">
+        <div class="ktv-profile-avatar">${esc((nv.hoten || "KT").slice(0, 2).toUpperCase())}</div>
+        <div class="ktv-profile-info">
+          <h3>${esc(nv.hoten)}</h3>
+          <div class="ktv-profile-meta">
+            ${nv.idnhanvien ? `<span>Mã: <strong>${esc(nv.idnhanvien)}</strong></span>` : ""}
+            ${nv.dienthoai ? `<span>📞 <strong class="cs-copyable-cell" data-copy-val="${esc(nv.dienthoai)}" title="Nhấp để sao chép SĐT">${esc(nv.dienthoai)}</strong></span>` : ""}
+            <span>Bộ phận: <strong style="color:var(--primary)">${esc(nv.tenbophan || "Kỹ thuật")}</strong></span>
+            ${nv.email ? `<span>✉️ ${esc(nv.email)}</span>` : ""}
+          </div>
+        </div>
+      </div>
+
+      <div class="ktv-detail-stat-row">
+        <div class="ktv-detail-stat-box">
+          <div class="stat-label">Giờ dự kiến</div>
+          <div class="stat-val" style="color:#b45309">${nv.tongdukien} <small style="font-size:12px;font-weight:500">h</small></div>
+        </div>
+        <div class="ktv-detail-stat-box">
+          <div class="stat-label">Giờ thực tế</div>
+          <div class="stat-val" style="color:#15803d">${nv.tongthucte} <small style="font-size:12px;font-weight:500">h</small></div>
+        </div>
+        <div class="ktv-detail-stat-box">
+          <div class="stat-label">Hiệu suất</div>
+          <div class="stat-val" style="color:var(--primary)">${nv.hieusuat}%</div>
+        </div>
+        <div class="ktv-detail-stat-box">
+          <div class="stat-label">Chênh lệch</div>
+          <div class="stat-val ${diffClass}" style="font-size:16px">${diffSign}${nv.chenhlech} h</div>
+        </div>
+      </div>
+
+      <div style="background:var(--surface-subtle);border:1px solid var(--border);border-radius:var(--radius-md);padding:16px;margin-bottom:18px">
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:12.5px;margin-bottom:6px">
+          <span style="color:var(--text-secondary)">Tiến độ giờ làm trong kỳ duyệt:</span>
+          <strong>${fmtDateOnly(fromDate)} ➜ ${fmtDateOnly(toDate)}</strong>
+        </div>
+        <div class="ktv-bar-track" style="height:9px">
+          <div class="ktv-bar-fill ${barClass}" style="width:${Math.min(nv.hieusuat, 100)}%"></div>
+        </div>
+        <div style="margin-top:10px;font-size:13px;line-height:1.55;color:var(--text)">
+          Kỹ thuật viên <strong>${esc(nv.hoten)}</strong> hiện xếp thứ <strong>#${nv.stt}</strong> toàn đội ngũ. Tổng số giờ hoàn thành thực tế đạt <strong>${nv.tongthucte} giờ</strong> (${diffSign}${nv.chenhlech} giờ so với định mức giao).
+        </div>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;border-top:1px solid var(--border);padding-top:14px">
+        <button type="button" class="btn btn-outline" onclick="closeModal()">Đóng cửa sổ</button>
+        <button type="button" class="btn btn-primary" id="btn-goto-ktv-tasks" style="display:inline-flex;align-items:center;gap:6px">
+          <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+          </svg>
+          Mở danh sách việc trên Tasklist
+        </button>
+      </div>
+      `,
+      true,
+      "modal-ktv-detail",
+    );
+
+    // Gắn sự kiện sao chép trong modal
+    $("#ktv-modal-content")?.querySelectorAll(".cs-copyable-cell").forEach((cEl) => {
+      cEl.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const val = cEl.dataset.copyVal || cEl.textContent.trim();
+        if (val && val !== "-") {
+          await copyToClipboard(val);
+          toast(`Đã sao chép "${val}"`);
+        }
+      });
+    });
+
+    // Chuyển trang sang Tasklist lọc theo đúng KTV này
+    $("#btn-goto-ktv-tasks")?.addEventListener("click", () => {
+      closeModal();
+      navigate("tasks");
+      setTimeout(() => {
+        const filterStaff = $("#task-filter-assignee");
+        if (filterStaff && nv.idnhanvien) {
+          filterStaff.value = nv.idnhanvien;
+          filterStaff.dispatchEvent(new Event("change"));
+        }
+      }, 150);
+    });
   };
 
   const loadData = async () => {
@@ -1918,8 +2120,141 @@ async function renderKtvTime() {
       const summary = data.summary || {};
       const items = data.items || [];
 
-      if (ktvViewMode === "cards") {
-        // HIỂN THỊ DẠNG FORM RIÊNG CHO MỖI NHÂN VIÊN
+      // Cập nhật 4 thẻ KPI tổng quan
+      if ($("#kpi-total-ktv")) {
+        $("#kpi-total-ktv").innerHTML = `${summary.totalKtvs || items.length} <small style="font-size:12px;font-weight:600">nhân sự</small>`;
+      }
+      if ($("#kpi-total-dukien")) {
+        $("#kpi-total-dukien").innerHTML = `${summary.totalDukien || 0} <small style="font-size:12px;font-weight:600">h</small>`;
+      }
+      if ($("#kpi-total-thucte")) {
+        $("#kpi-total-thucte").innerHTML = `${summary.totalThucte || 0} <small style="font-size:12px;font-weight:600">h</small>`;
+      }
+      if ($("#kpi-avg-hieusuat")) {
+        const avg = summary.avgHieusuat || 0;
+        $("#kpi-avg-hieusuat").textContent = `${avg}%`;
+        const diff = Math.round(((summary.totalThucte || 0) - (summary.totalDukien || 0)) * 10) / 10;
+        const diffEl = $("#kpi-diff-status");
+        if (diffEl) {
+          if (diff >= 0) {
+            diffEl.style.color = "#16a34a";
+            diffEl.textContent = `▲ Vượt tiến độ +${diff} giờ`;
+          } else {
+            diffEl.style.color = "#ea580c";
+            diffEl.textContent = `▼ Chậm tiến độ ${diff} giờ`;
+          }
+        }
+      }
+
+      if (ktvViewMode === "table") {
+        // PHƯƠNG ÁN A: DẠNG BẢNG ĐỐI CHIẾU CHI TIẾT (MẶC ĐỊNH)
+        $("#ktv-table-wrap").innerHTML = `
+          <div class="card" style="padding:0;overflow:hidden">
+            <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+              <h4 style="font-size:14.5px;font-weight:800;color:var(--text)">Bảng Xếp hạng & Đối chiếu Giờ làm KTV</h4>
+              <span style="font-size:12.5px;color:var(--text-secondary)">
+                Tìm thấy <strong>${items.length}</strong> kỹ thuật viên (từ ${fmtDateOnly(from)} ➜ ${fmtDateOnly(to)})
+              </span>
+            </div>
+
+            <div class="table-wrap" style="border:none;border-radius:0">
+              <table class="ktv-table">
+                <thead>
+                  <tr>
+                    <th style="width:65px;text-align:center">Thứ hạng</th>
+                    <th style="min-width:220px">Kỹ thuật viên</th>
+                    <th style="min-width:130px">Bộ phận</th>
+                    <th style="min-width:120px;text-align:right">Giờ dự kiến</th>
+                    <th style="min-width:125px;text-align:right">Giờ thực tế</th>
+                    <th style="min-width:210px">Tốc độ & Hiệu suất</th>
+                    <th style="width:110px;text-align:center">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${
+                    items.length
+                      ? items
+                          .map((nv) => {
+                            let rankBadge = "";
+                            if (nv.stt === 1) {
+                              rankBadge = '<span class="ktv-rank-badge top-1" title="Top 1 Năng suất">🥇</span>';
+                            } else if (nv.stt === 2) {
+                              rankBadge = '<span class="ktv-rank-badge top-2" title="Top 2 Năng suất">🥈</span>';
+                            } else if (nv.stt === 3) {
+                              rankBadge = '<span class="ktv-rank-badge top-3" title="Top 3 Năng suất">🥉</span>';
+                            } else {
+                              rankBadge = `<span class="ktv-rank-badge normal">#${nv.stt}</span>`;
+                            }
+
+                            const pct = Math.min(Math.round(nv.hieusuat || 0), 200);
+                            const barClass = pct >= 100 ? "high" : (pct >= 90 ? "mid" : "low");
+                            const diffClass = nv.chenhlech >= 0 ? "plus" : "minus";
+                            const diffSign = nv.chenhlech > 0 ? "+" : "";
+
+                            return `
+                      <tr class="ktv-row-item" data-id="${esc(nv.idnhanvien)}" style="cursor:pointer" title="Nhấp để xem hồ sơ chi tiết">
+                        <td style="text-align:center">${rankBadge}</td>
+                        <td>
+                          <div style="display:flex;align-items:center;gap:10px">
+                            <div class="user-avatar-modern" style="width:36px;height:36px;font-size:12.5px;font-weight:800;flex-shrink:0">
+                              ${esc((nv.hoten || "KT").slice(0, 2).toUpperCase())}
+                            </div>
+                            <div>
+                              <strong style="color:var(--text);font-size:13.5px;display:block">${esc(nv.hoten)}</strong>
+                              <div style="font-size:11.5px;color:var(--text-secondary);margin-top:2px;display:flex;gap:6px;align-items:center">
+                                ${nv.idnhanvien ? `<span>${esc(nv.idnhanvien)}</span>` : ""}
+                                ${nv.dienthoai ? `· <span class="cs-copyable-cell" data-copy-val="${esc(nv.dienthoai)}" title="Nhấp để sao chép SĐT" style="font-weight:600;color:var(--primary)">📞 ${esc(nv.dienthoai)}</span>` : ""}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td><span class="badge badge-blue">${esc(nv.tenbophan || "Kỹ thuật")}</span></td>
+                        <td class="ktv-num-cell ktv-num-dukien">
+                          ${nv.tongdukien} <small style="font-weight:500;font-size:11px">h</small>
+                        </td>
+                        <td class="ktv-num-cell ktv-num-thucte">
+                          ${nv.tongthucte} <small style="font-weight:500;font-size:11px">h</small>
+                        </td>
+                        <td>
+                          <div class="ktv-perf-box">
+                            <div class="ktv-perf-meta">
+                              <span style="color:var(--text);font-size:12.5px">${nv.hieusuat}%</span>
+                              <span class="ktv-diff-pill ${diffClass}">${diffSign}${nv.chenhlech} h</span>
+                            </div>
+                            <div class="ktv-bar-track">
+                              <div class="ktv-bar-fill ${barClass}" style="width:${Math.min(pct, 100)}%"></div>
+                            </div>
+                          </div>
+                        </td>
+                        <td style="text-align:center">
+                          <button type="button" class="btn btn-outline btn-sm btn-ktv-detail" style="height:28px;padding:0 9px;font-size:12px" title="Xem chi tiết hồ sơ & đầu việc">
+                            Xem việc
+                          </button>
+                        </td>
+                      </tr>
+                    `;
+                          })
+                          .join("")
+                      : `
+                    <tr>
+                      <td colspan="7" style="text-align:center;padding:36px;color:var(--muted)">
+                        Không tìm thấy kỹ thuật viên hoặc giờ làm nào trong khoảng ngày duyệt này.
+                      </td>
+                    </tr>
+                  `
+                  }
+                </tbody>
+              </table>
+            </div>
+
+            <div class="task-footer-stats" style="padding:12px 18px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:12.5px;flex-wrap:wrap;gap:8px">
+              <span>Tổng số: <strong style="color:var(--text)">${items.length}</strong> KTV</span>
+              <span>Khoảng ngày duyệt: <strong style="color:var(--text)">${fmtDateOnly(from)} ➜ ${fmtDateOnly(to)}</strong></span>
+            </div>
+          </div>
+        `;
+      } else {
+        // PHƯƠNG ÁN B: DẠNG THẺ HỒ SƠ TỪNG KTV
         $("#ktv-table-wrap").innerHTML = `
           ${
             items.length
@@ -1927,26 +2262,22 @@ async function renderKtvTime() {
             <div class="ktv-cards-grid">
               ${items
                 .map((nv) => {
+                  let rankHtml = "";
+                  if (nv.stt === 1) rankHtml = "🥇 Top 1";
+                  else if (nv.stt === 2) rankHtml = "🥈 Top 2";
+                  else if (nv.stt === 3) rankHtml = "🥉 Top 3";
+                  else rankHtml = `#${nv.stt}`;
+
                   const pct = Math.min(Math.round(nv.hieusuat || 0), 200);
-                  const barClass =
-                    pct >= 100 ? "high" : pct >= 60 ? "normal" : "low";
-                  const sttClass =
-                    nv.stt === 1
-                      ? "top-1"
-                      : nv.stt === 2
-                        ? "top-2"
-                        : nv.stt === 3
-                          ? "top-3"
-                          : "";
+                  const barClass = pct >= 100 ? "high" : (pct >= 90 ? "mid" : "low");
                   const diffClass = nv.chenhlech >= 0 ? "plus" : "minus";
                   const diffSign = nv.chenhlech > 0 ? "+" : "";
 
                   return `
-                  <div class="ktv-employee-card">
-                    <!-- Header: Thông tin KTV & Bộ phận -->
+                  <div class="ktv-employee-card ktv-row-item" data-id="${esc(nv.idnhanvien)}" style="cursor:pointer" title="Nhấp để xem hồ sơ chi tiết">
+                    <!-- Header Card -->
                     <div class="ktv-card-header">
                       <div class="ktv-card-user">
-                        <span class="ktv-card-stt-badge ${sttClass}" title="Thứ tự xếp hạng">#${nv.stt}</span>
                         <div class="ktv-card-avatar">
                           ${esc((nv.hoten || "KT").slice(0, 2).toUpperCase())}
                         </div>
@@ -1954,36 +2285,28 @@ async function renderKtvTime() {
                           <h4 class="ktv-card-name" title="${esc(nv.hoten)}">${esc(nv.hoten)}</h4>
                           <div class="ktv-card-meta">
                             ${nv.idnhanvien ? `<span>Mã: <strong>${esc(nv.idnhanvien)}</strong></span>` : ""}
-                            ${nv.dienthoai ? `<span>📞 ${esc(nv.dienthoai)}</span>` : nv.tendangnhap ? `<span>@${esc(nv.tendangnhap)}</span>` : ""}
+                            ${nv.dienthoai ? `<span class="cs-copyable-cell" data-copy-val="${esc(nv.dienthoai)}" title="Nhấp để sao chép SĐT">📞 ${esc(nv.dienthoai)}</span>` : ""}
                           </div>
                         </div>
                       </div>
-                      <span class="ktv-card-dept-tag">${esc(nv.tenbophan || "Kỹ thuật")}</span>
+                      <span class="ktv-card-stt-badge ${nv.stt <= 3 ? "top-" + nv.stt : ""}">
+                        ${rankHtml}
+                      </span>
                     </div>
 
                     <!-- Chỉ số: Giờ dự kiến & Giờ thực tế -->
-                    <div class="ktv-card-stats-row">
+                    <div class="ktv-card-stats-row" style="grid-template-columns:1fr 1fr">
                       <div class="ktv-card-stat-box">
-                        <div class="ktv-card-stat-label">
-                          <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          Giờ dự kiến
-                        </div>
-                        <div class="ktv-card-stat-val dukien">
-                          ${nv.tongdukien} <small>giờ</small>
+                        <div class="ktv-card-stat-label">Giờ dự kiến</div>
+                        <div class="ktv-card-stat-val dukien" style="color:#b45309">
+                          ${nv.tongdukien} <small>h</small>
                         </div>
                       </div>
 
                       <div class="ktv-card-stat-box">
-                        <div class="ktv-card-stat-label">
-                          <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                          </svg>
-                          Giờ thực tế
-                        </div>
-                        <div class="ktv-card-stat-val thucte">
-                          ${nv.tongthucte} <small>giờ</small>
+                        <div class="ktv-card-stat-label">Giờ thực tế</div>
+                        <div class="ktv-card-stat-val thucte" style="color:#15803d">
+                          ${nv.tongthucte} <small>h</small>
                         </div>
                       </div>
                     </div>
@@ -1993,20 +2316,28 @@ async function renderKtvTime() {
                       <div class="ktv-card-perf-top">
                         <span class="ktv-card-perf-label">
                           <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                           </svg>
                           Tốc độ / Hiệu suất
                         </span>
                         <div class="ktv-card-perf-badges">
-                          <span class="ktv-card-diff-tag ${diffClass}" title="Chênh lệch giờ làm thực tế so với dự kiến">
+                          <span class="ktv-card-diff-tag ${diffClass}">
                             ${diffSign}${nv.chenhlech} h
                           </span>
                           <span class="ktv-card-pct">${nv.hieusuat}%</span>
                         </div>
                       </div>
-                      <div class="ktv-progress-bar-bg" style="height:8px">
-                        <div class="ktv-progress-bar-fill ${barClass}" style="width:${Math.min(pct, 100)}%"></div>
+                      <div class="ktv-bar-track" style="height:8px">
+                        <div class="ktv-bar-fill ${barClass}" style="width:${Math.min(pct, 100)}%"></div>
                       </div>
+                    </div>
+
+                    <!-- Chân thẻ: Bộ phận & Nút xem việc -->
+                    <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border);padding-top:12px;margin-top:2px">
+                      <span class="badge badge-blue">${esc(nv.tenbophan || "Kỹ thuật")}</span>
+                      <button type="button" class="btn btn-outline btn-sm btn-ktv-detail" style="height:28px;padding:0 10px;font-size:12px">
+                        Xem việc ➔
+                      </button>
                     </div>
                   </div>
                 `;
@@ -2025,111 +2356,100 @@ async function renderKtvTime() {
             <span>Khoảng ngày duyệt: <strong style="color:var(--text)">${fmtDateOnly(from)} ➜ ${fmtDateOnly(to)}</strong></span>
           </div>
         `;
-      } else {
-        // HIỂN THỊ DẠNG BẢNG
-        $("#ktv-table-wrap").innerHTML = `
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th style="width:55px;text-align:center">STT</th>
-                  <th style="min-width:200px">Nhân viên KTV</th>
-                  <th style="min-width:130px">Bộ phận</th>
-                  <th style="min-width:130px;text-align:right">Giờ dự kiến</th>
-                  <th style="min-width:130px;text-align:right">Giờ thực tế</th>
-                  <th style="min-width:180px">Tốc độ / Hiệu suất</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${
-                  items.length
-                    ? items
-                        .map((nv) => {
-                          const pct = Math.min(
-                            Math.round(nv.hieusuat || 0),
-                            200,
-                          );
-                          const barClass =
-                            pct >= 100 ? "high" : pct >= 60 ? "normal" : "low";
-                          return `
-                    <tr>
-                      <td style="text-align:center;font-weight:700;color:#94a3b8">${nv.stt}</td>
-                      <td>
-                        <div style="display:flex;align-items:center;gap:10px">
-                          <div class="user-avatar-modern" style="width:34px;height:34px;font-size:12px">
-                            ${esc((nv.hoten || "KT").slice(0, 2).toUpperCase())}
-                          </div>
-                          <div>
-                            <strong style="color:var(--text);font-size:14px">${esc(nv.hoten)}</strong>
-                            <div class="muted" style="font-size:11.5px">${esc(nv.dienthoai || nv.tendangnhap || "")}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td><span class="badge badge-blue">${esc(nv.tenbophan || "Kỹ thuật")}</span></td>
-                      <td style="text-align:right;font-weight:700;color:#fbbf24;font-size:14px">
-                        ${nv.tongdukien} <small style="font-weight:500;font-size:11px">giờ</small>
-                      </td>
-                      <td style="text-align:right;font-weight:800;color:#34d399;font-size:14.5px">
-                        ${nv.tongthucte} <small style="font-weight:500;font-size:11px">giờ</small>
-                      </td>
-                      <td>
-                        <div class="ktv-progress-wrapper">
-                          <div style="display:flex;justify-content:space-between;font-size:11.5px;font-weight:600">
-                            <span style="color:var(--text-secondary)">${nv.hieusuat}%</span>
-                            <span style="color:${nv.chenhlech >= 0 ? "#34d399" : "#f87171"}">
-                              ${nv.chenhlech > 0 ? "+" : ""}${nv.chenhlech} h
-                            </span>
-                          </div>
-                          <div class="ktv-progress-bar-bg">
-                            <div class="ktv-progress-bar-fill ${barClass}" style="width:${Math.min(pct, 100)}%"></div>
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
-                  `;
-                        })
-                        .join("")
-                    : `
-                  <tr>
-                    <td colspan="6" style="text-align:center;padding:36px;color:var(--muted)">
-                      Không tìm thấy kỹ thuật viên hoặc giờ làm nào trong khoảng ngày duyệt này.
-                    </td>
-                  </tr>
-                `
-                }
-              </tbody>
-            </table>
-          </div>
-          <div class="task-footer-stats" style="margin-top:12px;display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:12.5px;flex-wrap:wrap;gap:8px">
-            <span>Tìm thấy: <strong style="color:var(--text)">${items.length}</strong> kỹ thuật viên</span>
-            <span>Khoảng ngày duyệt: <strong style="color:var(--text)">${fmtDateOnly(from)} ➜ ${fmtDateOnly(to)}</strong></span>
-          </div>
-        `;
       }
+
+      // Gắn sự kiện sao chép SĐT
+      $$(".cs-copyable-cell").forEach((el) => {
+        el.addEventListener("click", async (e) => {
+          e.stopPropagation();
+          const val = el.dataset.copyVal || el.textContent.trim();
+          if (val && val !== "-") {
+            await copyToClipboard(val);
+            toast(`Đã sao chép "${val}"`);
+          }
+        });
+      });
+
+      // Gắn sự kiện mở Modal Chi tiết khi bấm nút Xem việc hoặc bấm dòng / thẻ
+      const bindKtvDetailEvents = () => {
+        $$(".ktv-row-item").forEach((row, idx) => {
+          const nv = items[idx];
+          if (!nv) return;
+
+          row.addEventListener("click", (e) => {
+            if (e.target.closest(".cs-copyable-cell")) return;
+            openKtvDetailModal(nv, from, to);
+          });
+
+          const btn = row.querySelector(".btn-ktv-detail");
+          if (btn) {
+            btn.addEventListener("click", (e) => {
+              e.stopPropagation();
+              openKtvDetailModal(nv, from, to);
+            });
+          }
+        });
+      };
+      bindKtvDetailEvents();
     } catch (err) {
       $("#ktv-table-wrap").innerHTML =
         `<div class="modern-alert error">Lỗi tải dữ liệu KTV: ${esc(err.message)}</div>`;
     }
   };
 
-  // Sự kiện chuyển đổi chế độ xem Dạng Form / Dạng Bảng
-  $("#btn-view-cards")?.addEventListener("click", () => {
-    ktvViewMode = "cards";
-    state.ktvViewMode = "cards";
-    loadData();
-  });
+  // Sự kiện chuyển đổi chế độ xem Dạng Bảng (A) / Dạng Thẻ (B)
   $("#btn-view-table")?.addEventListener("click", () => {
     ktvViewMode = "table";
     state.ktvViewMode = "table";
     loadData();
   });
+  $("#btn-view-cards")?.addEventListener("click", () => {
+    ktvViewMode = "cards";
+    state.ktvViewMode = "cards";
+    loadData();
+  });
+
+  // Sự kiện chip chọn nhanh kỳ thời gian
+  const setActiveChip = (range) => {
+    $$(".ktv-quick-chip").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.range === range);
+    });
+  };
+
+  $("#chip-this-month")?.addEventListener("click", () => {
+    const { firstDayStr: f, lastDayStr: l } = getCurrentMonthRange();
+    if ($("#ktv-from")) $("#ktv-from").value = f;
+    if ($("#ktv-to")) $("#ktv-to").value = l;
+    setActiveChip("this-month");
+    loadData();
+  });
+
+  $("#chip-last-month")?.addEventListener("click", () => {
+    const { firstDayStr: f, lastDayStr: l } = getPrevMonthRange();
+    if ($("#ktv-from")) $("#ktv-from").value = f;
+    if ($("#ktv-to")) $("#ktv-to").value = l;
+    setActiveChip("last-month");
+    loadData();
+  });
+
+  $("#chip-this-week")?.addEventListener("click", () => {
+    const { firstDayStr: f, lastDayStr: l } = getCurrentWeekRange();
+    if ($("#ktv-from")) $("#ktv-from").value = f;
+    if ($("#ktv-to")) $("#ktv-to").value = l;
+    setActiveChip("this-week");
+    loadData();
+  });
 
   // Sự kiện tìm kiếm & lọc
-  $("#ktv-btn-search")?.addEventListener("click", loadData);
+  $("#ktv-btn-search")?.addEventListener("click", () => {
+    setActiveChip("");
+    loadData();
+  });
   $("#ktv-sort")?.addEventListener("change", loadData);
   $("#ktv-q")?.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
+      setActiveChip("");
       loadData();
     }
   });
@@ -2140,6 +2460,7 @@ async function renderKtvTime() {
     $("#ktv-to").value = lastDayStr;
     $("#ktv-sort").value = "thucte_desc";
     $("#ktv-q").value = "";
+    setActiveChip("this-month");
     loadData();
   });
 
@@ -2213,15 +2534,19 @@ async function renderCustomerSearch() {
   // Loại bỏ phần trong ngoặc đơn ở loại khách hàng (ví dụ: "Nha khoa số plus (Nha khoa...)" -> "Nha khoa số plus")
   const cleanCustomerType = (typeStr) => {
     if (!typeStr) return "Khách hàng";
-    const cleaned = String(typeStr)
-      .replace(/\s*\([^)]*\)?/g, "")
+    let cleaned = String(typeStr)
+      .replace(/\s*\([^)]*(\)|$)/g, "")
+      .replace(/\s*\(.*$/g, "")
       .trim();
-    return cleaned || String(typeStr).trim();
+    if (!cleaned) {
+      cleaned = String(typeStr).replace(/[()]/g, "").trim();
+    }
+    return cleaned || "Khách hàng";
   };
 
   el.innerHTML = `
     <!-- PANEL BỘ LỌC TRA CỨU THEO 4 TIÊU CHÍ (4 STORED PROCEDURES) -->
-    <div class="card">
+    <div class="card" id="cs-search-card">
       <div class="card-header">
         <div>
           <h3 style="font-size:17px">Tra cứu Khách hàng</h3>
@@ -2263,24 +2588,24 @@ async function renderCustomerSearch() {
       </div>
     </div>
 
-    <!-- DANH SÁCH KHÁCH HÀNG TÌM ĐƯỢC (Mặc định ẩn, khi tìm mới hiện) -->
+    <!-- DANH SÁCH KHÁCH HÀNG TÌM ĐƯỢC (BẢNG RỘNG HIỆN ĐẠI, BẤM DÒNG MỞ MODAL CSKH) -->
     <div class="card hidden" style="margin-top:16px" id="cs-result-card">
-      <div class="card-header" style="flex-wrap:wrap;gap:12px;justify-content:space-between">
-        <div>
-          <h3 style="font-size:16px">Danh sách Khách hàng tìm được</h3>
-          <p class="muted" style="margin:3px 0 0;font-size:12px">
-            Tích chọn vào một khách hàng để xem chi tiết chăm sóc bên dưới
-          </p>
-        </div>
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div class="card-header" style="flex-wrap:wrap;gap:10px;justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <div>
+            <h3 style="font-size:16px">Danh sách Khách hàng tìm được</h3>
+            <p class="muted" style="margin:2px 0 0;font-size:12px">
+              Nhấp vào khách hàng để mở Chi tiết Chăm sóc Khách hàng
+            </p>
+          </div>
           <span class="badge badge-blue" id="cs-cust-count">0 khách hàng</span>
-          <button type="button" class="btn btn-primary btn-sm" id="btn-cs-add-customer">
-            <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-            </svg>
-            Thêm khách hàng mới
-          </button>
         </div>
+        <button type="button" class="btn btn-primary btn-sm" id="btn-cs-add-customer">
+          <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+          </svg>
+          Thêm khách hàng mới
+        </button>
       </div>
 
       <div id="cs-table-wrap">
@@ -2289,124 +2614,445 @@ async function renderCustomerSearch() {
     </div>
   `;
 
-  // Tải chi tiết chăm sóc của khách hàng được tích chọn và mở Modal hiển thị
-  const loadCareDetail = async (
+  const getInitials = (name) => {
+    if (!name) return "KH";
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
+
+  let activeModalView = "cards"; // "cards" (Dạng thẻ timeline, dễ đọc, không mất chữ) | "table" (Dạng bảng phân cột)
+
+  // Mở modal Chi tiết Chăm sóc Khách hàng (Hiện đại, Hero Header, chuyển đổi Thẻ / Bảng, hiển thị toàn bộ nội dung không mất chữ)
+  const openCareDetailModal = async (
     idkhachhang,
     tenkhachhang,
     dienthoai,
     extraInfo = {},
   ) => {
-    selectedCustId = idkhachhang;
-    selectedCustName = tenkhachhang;
-    selectedCustPhone = dienthoai;
+    let careItems = [];
 
-    // Cập nhật radio và highlight dòng trên trang hiện tại
-    $$(".cust-row-selectable").forEach((tr) => {
-      const isThis = String(tr.dataset.idkhachhang) === String(idkhachhang);
-      tr.classList.toggle("row-selected", isThis);
-      const radio = tr.querySelector(".cust-radio-input");
-      if (radio) radio.checked = isThis;
-    });
+    const buildModalHtml = () => `
+      <div id="care-modal-content-wrap">
+        <!-- HERO PROFILE HEADER -->
+        <div class="care-modal-hero">
+          <div class="care-hero-top">
+            <div class="care-hero-name">
+              <span style="display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;background:var(--primary-light);color:var(--primary);font-size:14px;font-weight:800;flex-shrink:0">
+                ${getInitials(tenkhachhang)}
+              </span>
+              <span>${esc(tenkhachhang || "Khách hàng")}</span>
+              <span class="badge badge-blue">${esc(cleanCustomerType(extraInfo.tenloaikhachhang))}</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <button type="button" class="btn btn-outline btn-sm" id="btn-modal-edit-cust" title="Chỉnh sửa thông tin khách hàng">
+                <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+                Sửa KH
+              </button>
+              <button type="button" class="btn btn-primary btn-sm" id="btn-modal-add-care" title="Ghi nhận lần chăm sóc mới">
+                <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+                + Ghi nhận CS mới
+              </button>
+            </div>
+          </div>
+
+          <div class="care-hero-grid">
+            <div class="care-hero-item">
+              <span class="care-hero-lbl">Mã KH:</span>
+              <span class="badge badge-blue cs-copyable-cell" data-copy-val="${esc(extraInfo.makhachhang || idkhachhang)}" data-copy-label="Mã KH" title="Nhấp để sao chép Mã KH">
+                ${esc(extraInfo.makhachhang || idkhachhang)}
+                <svg class="cs-copy-icon" width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+              </span>
+            </div>
+            <div class="care-hero-item">
+              <span class="care-hero-lbl">SĐT:</span>
+              <div style="display:inline-flex;gap:4px;flex-wrap:wrap">${formatPhoneNumbers(dienthoai)}</div>
+            </div>
+            ${
+              extraInfo.diachi
+                ? `
+            <div class="care-hero-item cs-copyable-cell" data-copy-val="${esc(extraInfo.diachi)}" data-copy-label="Địa chỉ" title="Nhấp để sao chép Địa chỉ" style="max-width:100%">
+              <span class="care-hero-lbl">Địa chỉ:</span>
+              <span style="color:var(--text);font-weight:500;word-break:break-word">${esc(extraInfo.diachi)}</span>
+              <svg class="cs-copy-icon" width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+            </div>
+            `
+                : ""
+            }
+            <div class="care-hero-item">
+              <span class="care-hero-lbl">NV phụ trách:</span>
+              <strong style="color:var(--primary)">${esc(extraInfo.tennhanvien || "Chưa phân công")}</strong>
+            </div>
+            ${
+              extraInfo.tennguoilienlac || extraInfo.dienthoainguoilienlac
+                ? `
+            <div class="care-hero-item">
+              <span class="care-hero-lbl">Người liên hệ:</span>
+              <span style="font-weight:600">${esc(extraInfo.tennguoilienlac || "")}</span>
+              ${extraInfo.dienthoainguoilienlac ? ` - <span class="cs-copyable-cell" data-copy-val="${esc(extraInfo.dienthoainguoilienlac)}" data-copy-label="SĐT người liên hệ" style="font-weight:600;color:var(--primary)">${esc(extraInfo.dienthoainguoilienlac)}</span>` : ""}
+            </div>
+            `
+                : ""
+            }
+            ${
+              extraInfo.email
+                ? `
+            <div class="care-hero-item">
+              <span class="care-hero-lbl">Email:</span>
+              <span class="cs-copyable-cell" data-copy-val="${esc(extraInfo.email)}" data-copy-label="Email">${esc(extraInfo.email)}</span>
+            </div>
+            `
+                : ""
+            }
+          </div>
+        </div>
+
+        <!-- TOOLBAR: TRẠNG THÁI + NÚT CHUYỂN CHẾ ĐỘ XEM -->
+        <div class="care-view-toolbar">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:13.5px;font-weight:700;color:var(--text-heading)">Lịch sử Chăm sóc Khách hàng</span>
+            <span class="badge badge-amber" id="modal-care-count-badge">Đang tải...</span>
+          </div>
+          <div class="care-view-switch">
+            <button type="button" class="care-view-btn ${activeModalView === "cards" ? "active" : ""}" data-view="cards" title="Xem dạng thẻ chi tiết, toàn bộ nội dung hiển thị trọn vẹn không bị cắt chữ">
+              <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+              </svg>
+              Dạng thẻ (Dễ đọc)
+            </button>
+            <button type="button" class="care-view-btn ${activeModalView === "table" ? "active" : ""}" data-view="table" title="Xem dạng bảng phân cột">
+              <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              Dạng bảng
+            </button>
+          </div>
+        </div>
+
+        <!-- KHUNG NỘI DUNG CHĂM SÓC (KHÔNG BỊ CHE / CẮT CHỮ) -->
+        <div id="care-modal-body">
+          <div style="padding:32px;text-align:center;color:var(--muted)">Đang tải lịch sử chăm sóc...</div>
+        </div>
+
+        <!-- FOOTER -->
+        <div style="display:flex;justify-content:flex-end;margin-top:16px;border-top:1px solid var(--border);padding-top:12px">
+          <button type="button" class="btn btn-outline btn-sm" onclick="closeModal()">Đóng cửa sổ</button>
+        </div>
+      </div>
+    `;
 
     openModal(
       `Chi tiết Chăm sóc: ${tenkhachhang || "Khách hàng"}`,
-      `
-        <div id="care-modal-content-wrap">
-          <div style="padding:12px 14px;background:var(--surface-subtle);border-radius:var(--radius-md);border:1px solid var(--border);margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
-            <div style="font-size:13px;line-height:1.5">
-              <strong>Khách hàng:</strong> <span style="color:var(--primary);font-weight:700">${esc(tenkhachhang)}</span>
-              ${extraInfo.makhachhang ? ` | <strong>Mã KH:</strong> <code style="font-weight:700;color:var(--primary)">${esc(extraInfo.makhachhang)}</code>` : ""}
-              ${dienthoai ? ` | <strong>SĐT:</strong> <span>${esc(dienthoai)}</span>` : ""}
-              ${extraInfo.diachi ? `<div style="color:var(--text-secondary);font-size:12px;margin-top:3px"><strong>Địa chỉ:</strong> ${esc(extraInfo.diachi)}</div>` : ""}
-            </div>
-            <span class="badge badge-amber" id="modal-care-count-badge">Đang nạp...</span>
-          </div>
-
-          <div id="care-detail-modal-body">
-            <div style="padding:32px;text-align:center;color:var(--muted)">
-              Đang tải lịch sử chăm sóc khách hàng...
-            </div>
-          </div>
-
-          <div style="display:flex;justify-content:flex-end;margin-top:16px;gap:8px">
-            <button type="button" class="btn btn-outline btn-sm" onclick="closeModal()">Đóng</button>
-          </div>
-        </div>
-      `,
+      buildModalHtml(),
       true,
       "modal-care-detail",
     );
+
+    // Gắn sự kiện sao chép trong hero header
+    const bindCopyHero = () => {
+      $("#care-modal-content-wrap")
+        ?.querySelectorAll(".cs-copyable-cell")
+        .forEach((cEl) => {
+          cEl.addEventListener("click", async (e) => {
+            e.stopPropagation();
+            const val = cEl.dataset.copyVal || cEl.textContent.trim();
+            const label = cEl.dataset.copyLabel || "";
+            if (val && val !== "-") {
+              try {
+                await copyToClipboard(val);
+                toast(`Đã sao chép ${label ? label + ": " : ""}"${val}"`);
+                cEl.classList.add("copied-highlight");
+                setTimeout(() => cEl.classList.remove("copied-highlight"), 1000);
+              } catch (err) {
+                toast(`Lỗi sao chép: ${err.message}`);
+              }
+            }
+          });
+        });
+    };
+    bindCopyHero();
+
+    // Nút Sửa KH
+    $("#btn-modal-edit-cust")?.addEventListener("click", () => {
+      openCustomerForm(idkhachhang);
+    });
+
+    // Nút Ghi nhận CS mới
+    $("#btn-modal-add-care")?.addEventListener("click", () => {
+      openAddCareModal(idkhachhang, tenkhachhang, () => {
+        openCareDetailModal(idkhachhang, tenkhachhang, dienthoai, extraInfo);
+      });
+    });
+
+    // Hàm render danh sách chăm sóc (cards hoặc table)
+    const renderCareItems = () => {
+      const bodyEl = $("#care-modal-body");
+      if (!bodyEl) return;
+
+      if (!careItems.length) {
+        bodyEl.innerHTML = `
+          <div style="padding:40px 20px;text-align:center;background:var(--surface-subtle);border-radius:var(--radius-md);border:1px dashed var(--border)">
+            <svg width="40" height="40" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color:var(--muted);margin:0 auto 10px;display:block">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+            <div style="font-weight:700;color:var(--text);font-size:14px;margin-bottom:4px">Chưa có nhật ký chăm sóc nào</div>
+            <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px">Khách hàng này chưa được ghi nhận lịch sử chăm sóc hoặc tư vấn trong hệ thống.</p>
+            <button type="button" class="btn btn-primary btn-sm" id="btn-modal-empty-add-care">
+              <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+              </svg>
+              + Ghi nhận chăm sóc đầu tiên
+            </button>
+          </div>
+        `;
+        $("#btn-modal-empty-add-care")?.addEventListener("click", () => {
+          openAddCareModal(idkhachhang, tenkhachhang, () => {
+            openCareDetailModal(idkhachhang, tenkhachhang, dienthoai, extraInfo);
+          });
+        });
+        return;
+      }
+
+      if (activeModalView === "cards") {
+        bodyEl.innerHTML = `
+          <div class="care-cards-list">
+            ${careItems
+              .map(
+                (c) => `
+              <div class="care-item-card">
+                <div class="care-card-header">
+                  <div class="care-card-tags">
+                    <span class="care-stt-chip">#${c.stt || ""}</span>
+                    <span class="care-date-badge">
+                      <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="vertical-align:-1px;margin-right:3px">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                      </svg>
+                      ${fmtDateOnly(c.ngaythang)}
+                    </span>
+                    <span class="badge badge-blue">${esc(c.tenhinhthuc || "Chăm sóc")}</span>
+                    ${c.tendanhgiakhachhang ? `<span class="badge badge-green">${esc(c.tendanhgiakhachhang)}</span>` : ""}
+                    ${c.tentrangthai ? `<span class="badge badge-amber">${esc(c.tentrangthai)}</span>` : ""}
+                    ${c.isquantam ? `<span class="badge badge-purple" title="Quan tâm sản phẩm">★ Quan tâm SP</span>` : ""}
+                  </div>
+                  <div class="care-card-staff">
+                    Nhân viên CS: <strong>${esc(c.tennhanvien || "-")}</strong>
+                  </div>
+                </div>
+                <div class="care-card-content">${esc(c.noidungchamsoc || c.ghichu || "Không có nội dung")}</div>
+              </div>
+            `,
+              )
+              .join("")}
+          </div>
+        `;
+      } else {
+        bodyEl.innerHTML = `
+          <div class="care-table-scroll-container">
+            <table class="care-detail-table">
+              <colgroup>
+                <col style="width: 48px">
+                <col style="width: 105px">
+                <col style="width: 125px">
+                <col style="width: 135px">
+                <col style="width: 130px">
+                <col style="width: auto">
+              </colgroup>
+              <thead>
+                <tr>
+                  <th style="text-align:center">STT</th>
+                  <th style="text-align:center">Ngày CS</th>
+                  <th>Hình thức</th>
+                  <th>Nhân viên</th>
+                  <th>Đánh giá / TT</th>
+                  <th>Nội dung chăm sóc / Ghi chú</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${careItems
+                  .map(
+                    (c) => `
+                  <tr>
+                    <td style="text-align:center;font-weight:700;color:#94a3b8">${c.stt || ""}</td>
+                    <td style="text-align:center"><span class="care-date-badge">${fmtDateOnly(c.ngaythang)}</span></td>
+                    <td><span class="badge badge-blue">${esc(c.tenhinhthuc || "Chăm sóc")}</span></td>
+                    <td><strong style="color:var(--text);font-size:12.5px">${esc(c.tennhanvien || "-")}</strong></td>
+                    <td>
+                      ${c.tendanhgiakhachhang ? `<span class="badge badge-green" style="display:inline-block;margin-bottom:3px">${esc(c.tendanhgiakhachhang)}</span><br>` : ""}
+                      ${c.tentrangthai ? `<span class="badge badge-amber" style="display:inline-block">${esc(c.tentrangthai)}</span>` : ""}
+                      ${!c.tendanhgiakhachhang && !c.tentrangthai ? `<span style="color:var(--muted)">-</span>` : ""}
+                    </td>
+                    <td class="care-note-cell">
+                      <div class="care-note-cell-text">${esc(c.noidungchamsoc || c.ghichu || "-")}</div>
+                    </td>
+                  </tr>
+                `,
+                  )
+                  .join("")}
+              </tbody>
+            </table>
+          </div>
+        `;
+      }
+    };
+
+    // Chuyển chế độ xem giữa Dạng thẻ và Dạng bảng
+    $$(".care-view-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        $$(".care-view-btn").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        activeModalView = btn.dataset.view;
+        renderCareItems();
+      });
+    });
 
     try {
       const data = await api(
         `/api/customer-search/care?idkhachhang=${encodeURIComponent(idkhachhang)}`,
       );
-      const items = data.items || [];
+      careItems = data.items || [];
 
       const countBadge = $("#modal-care-count-badge");
       if (countBadge) {
-        countBadge.textContent = `${items.length} lần chăm sóc`;
-        countBadge.className = `badge ${items.length > 0 ? "badge-green" : "badge-amber"}`;
+        countBadge.textContent = `${careItems.length} lần chăm sóc`;
+        countBadge.className = `badge ${careItems.length > 0 ? "badge-green" : "badge-amber"}`;
       }
 
-      const bodyEl = $("#care-detail-modal-body");
-      if (!bodyEl) return;
-
-      bodyEl.innerHTML = `
-        <div class="care-table-scroll-container">
-          <table class="care-detail-table">
-            <colgroup>
-              <col style="width: 50px">
-              <col style="width: 105px">
-              <col style="width: 130px">
-              <col style="width: 140px">
-              <col style="width: auto">
-            </colgroup>
-            <thead>
-              <tr>
-                <th style="text-align:center">STT</th>
-                <th style="text-align:center">Thời gian</th>
-                <th>Hình thức CS</th>
-                <th>Nhân viên CS</th>
-                <th>Nội dung / Ghi chú</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${
-                items.length
-                  ? items
-                      .map(
-                        (c) => `
-                <tr>
-                  <td style="text-align:center;font-weight:700;color:#94a3b8">${c.stt}</td>
-                  <td style="text-align:center"><span class="care-date-badge">${fmtDateOnly(c.ngaythang)}</span></td>
-                  <td><span class="badge badge-blue">${esc(c.tenhinhthuc || "Chăm sóc")}</span></td>
-                  <td><strong style="color:var(--text);font-size:13px">${esc(c.tennhanvien || "-")}</strong></td>
-                  <td class="care-note-cell">
-                    <div class="care-note-cell-text">${esc(c.noidungchamsoc || c.ghichu || "-")}</div>
-                  </td>
-                </tr>
-              `,
-                      )
-                      .join("")
-                  : `
-                <tr>
-                  <td colspan="5" style="text-align:center;padding:36px;color:var(--muted)">
-                    Khách hàng này chưa có dữ liệu chăm sóc nào trong hệ thống.
-                  </td>
-                </tr>
-              `
-              }
-            </tbody>
-          </table>
-        </div>
-      `;
+      renderCareItems();
     } catch (err) {
-      const bodyEl = $("#care-detail-modal-body");
+      const bodyEl = $("#care-modal-body");
       if (bodyEl) {
         bodyEl.innerHTML = `<div class="modern-alert error">Lỗi tải lịch sử chăm sóc: ${esc(err.message)}</div>`;
       }
     }
+  };
+
+  // Mở modal nhanh ghi nhận chăm sóc khách hàng
+  const openAddCareModal = (idkhachhang, tenkhachhang, onSaved) => {
+    openModal(
+      `Ghi nhận Chăm sóc: ${tenkhachhang || "Khách hàng"}`,
+      `
+      <form id="care-quick-form" class="cust-modal-form">
+        <input type="hidden" name="idkhachhang" value="${esc(idkhachhang)}" />
+        <div class="cust-form-grid">
+          <div class="input-field-group cust-col-full">
+            <label>Khách hàng</label>
+            <div class="input-wrapper">
+              <span class="input-icon">
+                <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                </svg>
+              </span>
+              <input type="text" value="${esc(tenkhachhang)}" readonly style="font-weight:700;color:var(--primary);background:var(--surface-subtle)" />
+            </div>
+          </div>
+          <div class="input-field-group">
+            <label>Hình thức CS</label>
+            <div class="input-wrapper">
+              <span class="input-icon">
+                <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
+                </svg>
+              </span>
+              <select name="idhinhthucchamsoc">
+                <option value="">-- Chọn hình thức CS --</option>
+                ${optList(state.catalogs?.hinhThucChamSoc, "idhinhthucchamsoc", "tenhinhthuc")}
+              </select>
+            </div>
+          </div>
+          <div class="input-field-group">
+            <label>Đánh giá</label>
+            <div class="input-wrapper">
+              <span class="input-icon">
+                <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
+                </svg>
+              </span>
+              <select name="iddanhgiakhachhang">
+                <option value="">-- Chọn đánh giá --</option>
+                ${optList(state.catalogs?.danhGiaKhachHang, "iddanhgiakhachhang", "tendanhgiakhachhang")}
+              </select>
+            </div>
+          </div>
+          <div class="input-field-group">
+            <label>Lý do</label>
+            <div class="input-wrapper">
+              <span class="input-icon">
+                <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+              </span>
+              <select name="idlydokhachhang">
+                <option value="">-- Chọn lý do --</option>
+                ${optList(state.catalogs?.lyDoKhachHang, "idlydokhachhang", "tenlydokhachhang")}
+              </select>
+            </div>
+          </div>
+          <div class="input-field-group">
+            <label>Trạng thái</label>
+            <div class="input-wrapper">
+              <span class="input-icon">
+                <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+              </span>
+              <select name="idtrangthai">
+                <option value="">-- Chọn trạng thái --</option>
+                ${optList(state.catalogs?.trangThai, "idtrangthai", "tentrangthai")}
+              </select>
+            </div>
+          </div>
+          <div class="input-field-group cust-col-full">
+            <label>Nội dung / Ghi chú chăm sóc <span style="color:var(--danger)">*</span></label>
+            <div class="input-wrapper is-textarea">
+              <span class="input-icon">
+                <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                </svg>
+              </span>
+              <textarea name="ghichu" rows="3" placeholder="Nhập chi tiết nội dung cuộc gọi, trao đổi, thắc mắc hoặc phản hồi của phòng khám..." required></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin: 12px 0 6px">
+          <label class="checkbox-row" style="display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;cursor:pointer">
+            <input type="checkbox" name="isquantam" /> Khách đang quan tâm phần mềm / sản phẩm
+          </label>
+        </div>
+
+        <div class="cust-modal-actions">
+          <button type="button" class="btn btn-outline" onclick="closeModal()">Hủy</button>
+          <button type="submit" class="btn btn-primary" style="display:inline-flex;align-items:center;gap:6px">
+            <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+            </svg>
+            Lưu nhật ký chăm sóc
+          </button>
+        </div>
+      </form>
+      `,
+      true,
+      "modal-customer-form",
+    );
+
+    $("#care-quick-form")?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const payload = Object.fromEntries(fd.entries());
+      payload.isquantam = fd.get("isquantam") === "on";
+      try {
+        await api("/api/care", { method: "POST", body: JSON.stringify(payload) });
+        toast("Đã lưu nhật ký chăm sóc thành công");
+        closeModal();
+        if (typeof onSaved === "function") onSaved();
+      } catch (err) {
+        toast(`Lỗi lưu chăm sóc: ${err.message}`);
+      }
+    });
   };
 
   // Hàm render bảng khách hàng theo trang hiện tại (Phân trang 10 - 50 - 100 & Trang 1, 2, 3...)
@@ -2420,25 +3066,25 @@ async function renderCustomerSearch() {
         <div class="table-wrap">
           <table class="cs-table">
             <colgroup>
-              <col style="width:48px">
-              <col style="width:52px">
-              <col style="width:105px">
-              <col style="width:210px">
-              <col style="width:210px">
-              <col style="width:310px">
-              <col style="width:150px">
-              <col style="width:155px">
+              <col class="cs-col-stt" style="width: 48px">
+              <col class="cs-col-code" style="width: 95px">
+              <col class="cs-col-name" style="width: 210px">
+              <col class="cs-col-phone" style="width: 190px">
+              <col class="cs-col-address" style="width: 270px">
+              <col class="cs-col-type" style="width: 140px">
+              <col class="cs-col-staff" style="width: 130px">
+              <col class="cs-col-action" style="width: 110px">
             </colgroup>
             <thead>
               <tr>
-                <th class="cs-col-select">CHỌN</th>
-                <th class="cs-col-stt">STT</th>
+                <th class="cs-col-stt" style="text-align:center">STT</th>
                 <th class="cs-col-code">Mã KH</th>
                 <th class="cs-col-name">Tên khách hàng</th>
                 <th class="cs-col-phone">Số điện thoại</th>
                 <th class="cs-col-address">Địa chỉ</th>
                 <th class="cs-col-type">Loại KH</th>
-                <th class="cs-col-staff">Nhân viên phụ trách</th>
+                <th class="cs-col-staff">NV phụ trách</th>
+                <th class="cs-col-action" style="text-align:center">Thao tác</th>
               </tr>
             </thead>
             <tbody>
@@ -2527,51 +3173,54 @@ async function renderCustomerSearch() {
       <div class="table-wrap">
         <table class="cs-table">
           <colgroup>
-            <col style="width:48px">
-            <col style="width:52px">
-            <col style="width:105px">
-            <col style="width:210px">
-            <col style="width:210px">
-            <col style="width:310px">
-            <col style="width:150px">
-            <col style="width:155px">
+            <col class="cs-col-stt" style="width: 48px">
+            <col class="cs-col-code" style="width: 95px">
+            <col class="cs-col-name" style="width: 210px">
+            <col class="cs-col-phone" style="width: 190px">
+            <col class="cs-col-address" style="width: 270px">
+            <col class="cs-col-type" style="width: 140px">
+            <col class="cs-col-staff" style="width: 130px">
+            <col class="cs-col-action" style="width: 110px">
           </colgroup>
           <thead>
             <tr>
-              <th class="cs-col-select">CHỌN</th>
-              <th class="cs-col-stt">STT</th>
+              <th class="cs-col-stt" style="text-align:center">STT</th>
               <th class="cs-col-code">Mã KH</th>
               <th class="cs-col-name">Tên khách hàng</th>
               <th class="cs-col-phone">Số điện thoại</th>
               <th class="cs-col-address">Địa chỉ</th>
               <th class="cs-col-type">Loại KH</th>
-              <th class="cs-col-staff">Nhân viên phụ trách</th>
+              <th class="cs-col-staff">NV phụ trách</th>
+              <th class="cs-col-action" style="text-align:center">Thao tác</th>
             </tr>
           </thead>
           <tbody>
             ${pageItems
               .map((kh, idx) => {
                 const overallStt = startIdx + idx + 1;
-                const isSelected =
-                  String(kh.idkhachhang) === String(selectedCustId);
                 return `
-                <tr class="cust-row-selectable ${isSelected ? "row-selected" : ""}" 
+                <tr class="cust-row-selectable" 
                     data-idkhachhang="${esc(kh.idkhachhang)}" 
                     data-tenkhachhang="${esc(kh.tenkhachhang)}" 
                     data-dienthoai="${esc(kh.dienthoai)}"
                     data-makhachhang="${esc(kh.makhachhang || "")}"
-                    data-diachi="${esc(kh.diachi || "")}">
-                  <td class="cs-col-select" onclick="event.stopPropagation()">
-                    <input type="radio" name="selected_cust_radio" class="cust-radio-input" ${isSelected ? "checked" : ""} data-radio-id="${esc(kh.idkhachhang)}" title="Tích chọn để xem lịch sử chăm sóc" />
-                  </td>
-                  <td class="cs-col-stt" style="font-weight:700;color:#94a3b8">${overallStt}</td>
+                    data-diachi="${esc(kh.diachi || "")}"
+                    data-tenloaikhachhang="${esc(kh.tenloaikhachhang || "")}"
+                    data-tennhanvien="${esc(kh.tennhanvien || "")}"
+                    data-email="${esc(kh.email || "")}"
+                    data-ghichu="${esc(kh.ghichu || "")}"
+                    data-tennguoilienlac="${esc(kh.tennguoilienlac || "")}"
+                    data-dienthoainguoilienlac="${esc(kh.dienthoainguoilienlac || "")}"
+                    data-emailnguoilienlac="${esc(kh.emailnguoilienlac || "")}"
+                    title="Nhấp vào dòng để xem Chi tiết Chăm sóc Khách hàng">
+                  <td class="cs-col-stt" style="text-align:center;font-weight:700;color:#94a3b8">${overallStt}</td>
                   <td class="cs-col-code">
                     <span class="badge badge-blue cs-copyable-cell" data-copy-val="${esc(kh.makhachhang || "")}" data-copy-label="Mã KH" title="Nhấp để sao chép Mã KH">
                       ${esc(kh.makhachhang || "-")}
                       ${
                         kh.makhachhang
                           ? `
-                        <svg class="cs-copy-icon" width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg class="cs-copy-icon" width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
                         </svg>
                       `
@@ -2580,35 +3229,45 @@ async function renderCustomerSearch() {
                     </span>
                   </td>
                   <td class="cs-col-name">
-                    <strong class="cs-copyable-cell" data-copy-val="${esc(kh.tenkhachhang)}" data-copy-label="Tên khách hàng" title="Nhấp để sao chép Tên khách hàng" style="color:var(--text);font-size:13.5px;display:inline-flex;align-items:center;gap:4px">
-                      ${esc(kh.tenkhachhang)}
-                      <svg class="cs-copy-icon" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
-                      </svg>
-                    </strong>
-                    ${kh.email ? `<div class="muted cs-copyable-cell" data-copy-val="${esc(kh.email)}" data-copy-label="Email" title="Nhấp để sao chép Email" style="font-size:11px;word-break:break-all">${esc(kh.email)}</div>` : ""}
+                    <div>
+                      <strong class="cs-copyable-cell" data-copy-val="${esc(kh.tenkhachhang)}" data-copy-label="Tên khách hàng" title="Nhấp để sao chép Tên khách hàng" style="color:var(--text);font-size:13.5px;display:inline-flex;align-items:center;gap:4px">
+                        ${esc(kh.tenkhachhang)}
+                        <svg class="cs-copy-icon" width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                        </svg>
+                      </strong>
+                    </div>
                   </td>
                   <td class="cs-col-phone">
                     ${formatPhoneNumbers(kh.dienthoai)}
                   </td>
                   <td class="cs-col-address">
-                    <div class="cs-copyable-cell cs-address-text" data-copy-val="${esc(kh.diachi || "")}" data-copy-label="Địa chỉ" title="Nhấp để sao chép Địa chỉ" style="font-size:12.5px;color:var(--text-secondary);line-height:1.45;word-break:break-word">
-                      ${esc(kh.diachi || "-")}
-                      ${
-                        kh.diachi
-                          ? `
-                        <svg class="cs-copy-icon" width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    ${
+                      kh.diachi
+                        ? `
+                      <div class="cs-copyable-cell cs-address-text" data-copy-val="${esc(kh.diachi)}" data-copy-label="Địa chỉ" title="Nhấp để sao chép Địa chỉ" style="font-size:12.5px;color:var(--text-secondary);line-height:1.45;word-break:break-word">
+                        ${esc(kh.diachi)}
+                        <svg class="cs-copy-icon" width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
                         </svg>
-                      `
-                          : ""
-                      }
-                    </div>
+                      </div>
+                    `
+                        : `<span style="color:var(--muted)">-</span>`
+                    }
                   </td>
                   <td class="cs-col-type">
                     <span class="badge badge-blue" title="${esc(kh.tenloaikhachhang || "Khách hàng")}">${esc(cleanCustomerType(kh.tenloaikhachhang))}</span>
                   </td>
-                  <td class="cs-col-staff" style="font-size:13px">${esc(kh.tennhanvien || "-")}</td>
+                  <td class="cs-col-staff" style="font-size:12.5px">${esc(kh.tennhanvien || "-")}</td>
+                  <td class="cs-col-action" style="text-align:center">
+                    <button type="button" class="btn btn-outline btn-sm btn-open-care-detail" title="Xem Chi tiết Chăm sóc Khách hàng">
+                      <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                      Chi tiết
+                    </button>
+                  </td>
                 </tr>
               `;
               })
@@ -2658,39 +3317,39 @@ async function renderCustomerSearch() {
       });
     });
 
-    // Gắn sự kiện chọn dòng khách hàng (Mở Modal Chi tiết Chăm sóc Khách hàng)
+    // Mở modal khi bấm vào dòng khách hàng hoặc nút Chi tiết
+    const triggerCareModalForTr = (tr) => {
+      if (!tr) return;
+      openCareDetailModal(
+        tr.dataset.idkhachhang,
+        tr.dataset.tenkhachhang,
+        tr.dataset.dienthoai,
+        {
+          makhachhang: tr.dataset.makhachhang,
+          diachi: tr.dataset.diachi,
+          tenloaikhachhang: tr.dataset.tenloaikhachhang,
+          tennhanvien: tr.dataset.tennhanvien,
+          email: tr.dataset.email,
+          ghichu: tr.dataset.ghichu,
+          tennguoilienlac: tr.dataset.tennguoilienlac,
+          dienthoainguoilienlac: tr.dataset.dienthoainguoilienlac,
+          emailnguoilienlac: tr.dataset.emailnguoilienlac,
+        },
+      );
+    };
+
     $$(".cust-row-selectable").forEach((tr) => {
       tr.addEventListener("click", (e) => {
         if (e.target.closest(".cs-copyable-cell")) return;
-        const radio = tr.querySelector(".cust-radio-input");
-        if (radio) radio.checked = true;
-        loadCareDetail(
-          tr.dataset.idkhachhang,
-          tr.dataset.tenkhachhang,
-          tr.dataset.dienthoai,
-          {
-            makhachhang: tr.dataset.makhachhang,
-            diachi: tr.dataset.diachi,
-          },
-        );
+        triggerCareModalForTr(tr);
       });
     });
 
-    // Sự kiện khi tích chọn radio
-    $$(".cust-radio-input").forEach((radio) => {
-      radio.addEventListener("change", () => {
-        const tr = radio.closest("tr");
-        if (tr) {
-          loadCareDetail(
-            tr.dataset.idkhachhang,
-            tr.dataset.tenkhachhang,
-            tr.dataset.dienthoai,
-            {
-              makhachhang: tr.dataset.makhachhang,
-              diachi: tr.dataset.diachi,
-            },
-          );
-        }
+    $$(".btn-open-care-detail").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const tr = btn.closest("tr");
+        triggerCareModalForTr(tr);
       });
     });
 

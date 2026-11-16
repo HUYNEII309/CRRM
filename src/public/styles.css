@@ -2229,22 +2229,22 @@ tr:hover td {
 
 /* Customer Search Table Layout & Column Safeguards */
 .cs-table {
-  min-width: 1150px;
+  min-width: 1080px;
   width: 100%;
   table-layout: fixed;
   border-collapse: separate;
   border-spacing: 0;
 }
 .cs-col-select {
-  width: 48px;
+  width: 44px;
   text-align: center;
 }
 .cs-col-stt {
-  width: 52px;
+  width: 48px;
   text-align: center;
 }
 .cs-col-code {
-  width: 105px;
+  width: 95px;
   white-space: nowrap;
 }
 .cs-col-name {
@@ -2252,16 +2252,16 @@ tr:hover td {
   word-break: break-word;
 }
 .cs-col-phone {
-  width: 210px;
+  width: 190px;
   word-break: break-word;
 }
 .cs-col-address {
-  width: 310px;
+  width: 270px;
   word-break: break-word;
   line-height: 1.45;
 }
 .cs-col-type {
-  width: 150px;
+  width: 140px;
 }
 .cs-col-type .badge {
   white-space: normal !important;
@@ -2273,14 +2273,18 @@ tr:hover td {
   max-width: 100%;
 }
 .cs-col-staff {
-  width: 155px;
+  width: 130px;
+  white-space: nowrap;
+}
+.cs-col-action {
+  width: 110px;
+  text-align: center;
   white-space: nowrap;
 }
 
 .cs-table th,
 .cs-table td {
   vertical-align: top !important;
-  overflow: hidden;
   box-sizing: border-box;
 }
 
@@ -2325,6 +2329,7 @@ tr:hover td {
   position: relative;
   transition: all var(--trans-fast);
   user-select: text;
+  border-radius: 4px;
 }
 
 .cs-copyable-cell:hover {
@@ -2374,15 +2379,485 @@ tr:hover td {
   color: var(--primary) !important;
 }
 
+/* ==================== SPLIT MASTER-DETAIL 360° (OPTION A) ==================== */
+.cs-split-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1.05fr);
+  gap: 16px;
+  align-items: start;
+  margin-top: 16px;
+}
+
+@media (max-width: 1080px) {
+  .cs-split-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.cs-master-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.cs-detail-panel {
+  position: sticky;
+  top: 16px;
+  max-height: calc(100vh - 32px);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.cs-detail-header {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--surface-subtle);
+  flex-shrink: 0;
+}
+
+.cs-detail-header-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.cs-detail-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+}
+
+.cs-detail-title {
+  margin: 3px 0 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text-heading);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cs-detail-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.cs-btn-icon-only {
+  padding: 0 8px !important;
+}
+
+.cs-detail-content-scroll {
+  padding: 16px 18px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Hero Box */
+.cs-detail-hero {
+  padding: 12px 14px;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 12.5px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cs-hero-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.cs-hero-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.cs-hero-lbl {
+  font-weight: 700;
+  color: var(--text-secondary);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.cs-hero-val {
+  font-weight: 500;
+  color: var(--text);
+}
+
+/* Tabs */
+.cs-detail-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-bottom: 1.5px solid var(--border);
+  padding-bottom: 6px;
+  flex-shrink: 0;
+}
+
+.cs-tab-btn {
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all var(--trans-fast);
+}
+
+.cs-tab-btn:hover {
+  color: var(--text);
+  background: var(--surface-subtle);
+}
+
+.cs-tab-btn.active {
+  color: var(--primary);
+  font-weight: 700;
+  background: var(--primary-light);
+}
+
+.cs-tab-badge {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: var(--border);
+  color: var(--text-secondary);
+  font-weight: 700;
+}
+
+.cs-tab-btn.active .cs-tab-badge {
+  background: var(--primary);
+  color: #ffffff;
+}
+
+/* Care Timeline in Detail Panel */
+.cs-care-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cs-care-card {
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  transition: border-color var(--trans-fast);
+}
+
+.cs-care-card:hover {
+  border-color: var(--primary-light-border);
+}
+
+.cs-care-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.cs-care-card-body {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text);
+}
+
+.cs-care-card-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  line-height: 1.6;
+}
+
+/* Service & Note tab contents */
+.cs-tab-card {
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cs-tab-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 13px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed var(--border);
+}
+
+.cs-tab-info-row:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.cs-tab-info-lbl {
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.cs-tab-info-val {
+  font-weight: 500;
+  color: var(--text);
+  text-align: right;
+  word-break: break-word;
+}
+
+/* Empty States */
+.cs-detail-empty, .cs-care-empty {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.cs-detail-empty-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--surface-subtle);
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.cs-detail-empty h4 {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-heading);
+  margin: 0;
+}
+
+.cs-detail-empty p, .cs-care-empty p {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  max-width: 320px;
+  margin: 0;
+  line-height: 1.5;
+}
+
 /* Modal Chi tiết Chăm sóc Khách hàng */
 .modal-card.modal-care-detail {
   max-width: 980px;
-  width: 95vw;
+  width: 96vw;
+  max-height: 90vh;
+}
+
+/* Care Modal Hero Header */
+.care-modal-hero {
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 14px 18px;
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.care-hero-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.care-hero-name {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--text-heading);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.care-hero-grid {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.care-hero-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.care-hero-lbl {
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+/* Care View Toolbar (Switch View & Quick Actions) */
+.care-view-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.care-view-switch {
+  display: inline-flex;
+  background: var(--surface-subtle);
+  padding: 3px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  gap: 4px;
+}
+
+.care-view-btn {
+  border: none;
+  background: transparent;
+  padding: 5px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all var(--trans-fast);
+}
+
+.care-view-btn:hover {
+  color: var(--text);
+}
+
+.care-view-btn.active {
+  background: var(--surface);
+  color: var(--primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* Care Timeline Cards List - Zero Text Cutoff */
+.care-cards-list {
+  max-height: 52vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.care-item-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  transition: border-color var(--trans-fast), box-shadow var(--trans-fast);
+}
+
+.care-item-card:hover {
+  border-color: var(--primary-light-border);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.care-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.care-card-tags {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.care-stt-chip {
+  font-size: 11px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 12px;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+
+.care-card-staff {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+.care-card-staff strong {
+  color: var(--text);
+}
+
+.care-card-content {
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-top: 4px;
 }
 
 /* Care Modal Table Styles - Text wrap and no horizontal scroll */
 .care-table-scroll-container {
-  max-height: 58vh;
+  max-height: 52vh;
   overflow-y: auto;
   overflow-x: hidden !important;
   border-radius: var(--radius-md);
@@ -3708,3 +4183,169 @@ tr:hover td {
 }
 
 .btn-text { font-family: inherit; font-weight: 700; }
+
+/* ==================== KTV TIME ENHANCED STYLES (A + B) ==================== */
+.ktv-quick-chips {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.ktv-quick-chip {
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--trans-fast);
+}
+.ktv-quick-chip:hover {
+  color: var(--text);
+  border-color: var(--border-hover);
+}
+.ktv-quick-chip.active {
+  background: var(--primary-light);
+  border-color: var(--primary-border);
+  color: var(--primary);
+}
+
+/* KTV Table Styling */
+.ktv-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13.5px;
+}
+.ktv-table th {
+  background: var(--surface-subtle);
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--text-secondary);
+  padding: 12px 14px;
+  border-bottom: 1.5px solid var(--border);
+  text-align: left;
+  white-space: nowrap;
+}
+.ktv-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.ktv-table tr:last-child td {
+  border-bottom: none;
+}
+.ktv-table tr:hover td {
+  background-color: var(--primary-light);
+}
+
+/* Rank Medals */
+.ktv-rank-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 800;
+  user-select: none;
+}
+.ktv-rank-badge.top-1 {
+  background: #fef08a;
+  color: #854d0e;
+  border: 1px solid #fde047;
+}
+.ktv-rank-badge.top-2 {
+  background: #e2e8f0;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+}
+.ktv-rank-badge.top-3 {
+  background: #ffedd5;
+  color: #9a3412;
+  border: 1px solid #fed7aa;
+}
+.ktv-rank-badge.normal {
+  color: #94a3b8;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+/* KTV Table Numbers */
+.ktv-num-cell {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 13.5px;
+  white-space: nowrap;
+}
+.ktv-num-dukien {
+  color: #b45309;
+}
+.ktv-num-thucte {
+  color: #15803d;
+  font-size: 14.5px;
+  font-weight: 800;
+}
+
+/* Progress & Performance box */
+.ktv-perf-box {
+  min-width: 175px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.ktv-perf-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 700;
+}
+.ktv-diff-pill {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-weight: 700;
+}
+.ktv-diff-pill.plus {
+  background: var(--success-bg);
+  color: var(--success-text);
+  border: 1px solid var(--success-border);
+}
+.ktv-diff-pill.minus {
+  background: var(--danger-bg);
+  color: var(--danger-text);
+  border: 1px solid var(--danger-border);
+}
+.ktv-bar-track {
+  height: 7px;
+  background: var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.ktv-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+.ktv-bar-fill.high {
+  background: linear-gradient(90deg, #10b981, #059669);
+}
+.ktv-bar-fill.mid {
+  background: linear-gradient(90deg, #3b82f6, #2563eb);
+}
+.ktv-bar-fill.low {
+  background: linear-gradient(90deg, #f59e0b, #d97706);
+}
+
+.modal-card.modal-ktv-detail {
+  max-width: 840px;
+  width: 95vw;
+  max-height: 90vh;
+}
