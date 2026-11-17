@@ -653,7 +653,7 @@ async function openStaffListModal() {
 
 $("#btn-login-staff-list")?.addEventListener("click", openStaffListModal);
 
-// Hiển thị / Ẩn hàng gợi ý "Nội bộ CRMPLUS · Tùy chọn MD5 / Nhân viên"
+// Hiển thị / Ẩn hàng gợi ý "Nội bộ CRMPLUS · Ẩn tùy chọn"
 function setLoginAdvRevealed(revealed) {
   const hintRow = $("#login-hint-row");
   if (hintRow) {
@@ -673,19 +673,17 @@ function setLoginAdvOpen(open) {
   if (hintBtn) {
     hintBtn.setAttribute("aria-expanded", String(open));
     const lbl = hintBtn.querySelector("span");
-    if (lbl) lbl.textContent = open ? "Ẩn tùy chọn" : "Tùy chọn MD5 / Nhân viên";
+    if (lbl) lbl.textContent = "Ẩn tùy chọn";
   }
 }
 
-// Nút "Tùy chọn MD5 / Nhân viên" khi đã hiện thì bấm 1 click để thu gọn/mở rộng drawer
+// Nút "Ẩn tùy chọn" khi đã hiện thì bấm 1 click để ẩn hoàn toàn tùy chọn nâng cao
 $("#btn-toggle-login-adv")?.addEventListener("click", () => {
-  const drawer = $("#login-adv-drawer");
-  if (!drawer) return;
-  const nextOpen = !drawer.classList.contains("open");
-  setLoginAdvOpen(nextOpen);
+  setLoginAdvRevealed(false);
+  toast("Đã ẩn tùy chọn nâng cao");
 });
 
-// Xử lý tích đúp (double-click / double-tap) vào logo CRM+ để bật/tắt toàn bộ tùy chọn nâng cao
+// Xử lý nhấp 1 lần (click) vào logo CRM+ để bật/tắt toàn bộ tùy chọn nâng cao (Nội bộ CRMPLUS · Ẩn tùy chọn)
 function toggleLoginAdvFromLogo() {
   const hintRow = $("#login-hint-row");
   const isHidden = !hintRow || hintRow.classList.contains("hidden");
@@ -698,30 +696,16 @@ function toggleLoginAdvFromLogo() {
   }
 }
 
-function bindLogoDoubleTrigger(el) {
+function bindLogoSingleTrigger(el) {
   if (!el) return;
-  // Desktop & mobile native double click
-  el.addEventListener("dblclick", (e) => {
+  el.addEventListener("click", (e) => {
     e.preventDefault();
     toggleLoginAdvFromLogo();
   });
-
-  // Touch double-tap hỗ trợ nhanh trên mobile
-  let lastTouch = 0;
-  el.addEventListener("touchend", (e) => {
-    const now = Date.now();
-    if (now - lastTouch < 350 && now - lastTouch > 40) {
-      e.preventDefault();
-      toggleLoginAdvFromLogo();
-      lastTouch = 0;
-    } else {
-      lastTouch = now;
-    }
-  });
 }
 
-bindLogoDoubleTrigger($("#login-logo-btn"));
-bindLogoDoubleTrigger($("#login-logo-btn-mobile"));
+bindLogoSingleTrigger($("#login-logo-btn"));
+bindLogoSingleTrigger($("#login-logo-btn-mobile"));
 
 function logout() {
   state.token = "";
