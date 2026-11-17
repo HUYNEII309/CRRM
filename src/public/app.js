@@ -20,6 +20,25 @@ if (document.readyState === "loading") {
   initTheme();
 }
 
+// Auto-hide scrollbar helper (I18: gắn .is-scrolling khi đang cuộn)
+(function initScrollbarAutohide() {
+  const timers = new WeakMap();
+  document.addEventListener(
+    "scroll",
+    (e) => {
+      const target = e.target === document ? document.documentElement : e.target;
+      if (!target?.classList) return;
+      target.classList.add("is-scrolling");
+      clearTimeout(timers.get(target));
+      timers.set(
+        target,
+        setTimeout(() => target.classList.remove("is-scrolling"), 700),
+      );
+    },
+    { capture: true, passive: true },
+  );
+})();
+
 const state = {
   token: localStorage.getItem("crm_token") || "",
   user: null,
@@ -28,6 +47,8 @@ const state = {
   dashboardScope: "mine",
   customerPage: 1,
 };
+
+let openCareDetailModal = null;
 
 function esc(val) {
   if (val === null || val === undefined) return "";
@@ -136,6 +157,90 @@ function closeModal() {
   if (card) {
     card.className = "modal-card";
   }
+}
+
+/**
+ * Hiển thị Hộp thoại xác nhận kiểu Modal hiện đại (thay thế window.confirm mặc định)
+ */
+function showConfirmModal({
+  title = "Xác nhận xóa",
+  message = "Bạn có chắc chắn muốn thực hiện thao tác này?",
+  confirmText = "Xác nhận xóa",
+  cancelText = "Hủy bỏ",
+  iconSvg = null,
+  isDanger = true,
+}) {
+  return new Promise((resolve) => {
+    const backdrop = $("#confirm-modal-backdrop");
+    const titleEl = $("#confirm-modal-title");
+    const msgEl = $("#confirm-modal-message");
+    const btnOk = $("#confirm-modal-btn-ok");
+    const btnCancel = $("#confirm-modal-btn-cancel");
+    const iconEl = $("#confirm-modal-icon");
+
+    if (!backdrop || !btnOk || !btnCancel) {
+      resolve(window.confirm(message.replace(/<[^>]*>?/gm, '')));
+      return;
+    }
+
+    if (titleEl) titleEl.textContent = title;
+    if (msgEl) msgEl.innerHTML = message;
+    if (btnOk) {
+      btnOk.textContent = confirmText;
+      btnOk.className = isDanger ? "btn btn-danger" : "btn btn-primary";
+    }
+    if (btnCancel) btnCancel.textContent = cancelText;
+
+    if (iconEl && iconSvg) {
+      iconEl.innerHTML = iconSvg;
+    } else if (iconEl) {
+      iconEl.innerHTML = `
+        <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+        </svg>
+      `;
+    }
+
+    const cleanup = () => {
+      backdrop.classList.add("hidden");
+      btnOk.removeEventListener("click", onOk);
+      btnCancel.removeEventListener("click", onCancel);
+      backdrop.removeEventListener("click", onBackdrop);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+
+    const onOk = () => {
+      cleanup();
+      resolve(true);
+    };
+
+    const onCancel = () => {
+      cleanup();
+      resolve(false);
+    };
+
+    const onBackdrop = (e) => {
+      if (e.target === backdrop) {
+        cleanup();
+        resolve(false);
+      }
+    };
+
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") {
+        cleanup();
+        resolve(false);
+      }
+    };
+
+    btnOk.addEventListener("click", onOk);
+    btnCancel.addEventListener("click", onCancel);
+    backdrop.addEventListener("click", onBackdrop);
+    window.addEventListener("keydown", onKeyDown);
+
+    backdrop.classList.remove("hidden");
+    btnCancel.focus();
+  });
 }
 
 function copyToClipboard(text) {
@@ -311,33 +416,52 @@ async function openDbConfigModal() {
   });
 }
 
-$("#open-db-config-login").addEventListener("click", openDbConfigModal);
-$("#open-db-config-top").addEventListener("click", openDbConfigModal);
+$("#open-db-config-login")?.addEventListener("click", openDbConfigModal);
+$("#open-db-config-top")?.addEventListener("click", openDbConfigModal);
 
-// Toggle password visibility
+// Toggle password visibility (giữ tiêu điểm bàn phím, cập nhật aria-label)
 const btnTogglePwd = $("#btn-toggle-pwd");
 if (btnTogglePwd) {
   btnTogglePwd.addEventListener("click", () => {
     const pwdInput = $("#login-password");
     const isPwd = pwdInput.type === "password";
     pwdInput.type = isPwd ? "text" : "password";
+    btnTogglePwd.setAttribute("aria-label", isPwd ? "Ẩn mật khẩu" : "Hiện mật khẩu");
     btnTogglePwd.innerHTML = isPwd
-      ? `<svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18"/></svg>`
-      : `<svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>`;
+      ? `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/><path d="m2 2 20 20"/></svg>`
+      : `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg>`;
   });
 }
+
+// Trượt con trỏ segmented giữa Mặc định & Mã hóa MD5
+$$('input[name="login_type"]').forEach((radio) => {
+  radio.addEventListener("change", () => {
+    const seg = $("#login-type-switch");
+    if (seg) seg.dataset.active = radio.value;
+    $$(".auth-md5-opt").forEach((opt) => {
+      const inp = opt.querySelector("input");
+      opt.classList.toggle("is-active", !!inp?.checked);
+    });
+  });
+});
 
 $("#login-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const errBox = $("#login-error");
   const errText = $("#login-error-text");
   const submitBtn = $("#btn-login-submit");
+  const spinnerEl = submitBtn?.querySelector(".auth-btn-spinner");
+  const btnTextEl = submitBtn?.querySelector(".btn-text");
+  if (!submitBtn || submitBtn.dataset.loading === "1") return;
 
   const loginType = $('input[name="login_type"]:checked')?.value || "md5";
 
   errBox.classList.add("hidden");
-  submitBtn.disabled = true;
-  submitBtn.querySelector(".btn-text").textContent = "Đang xác thực...";
+  submitBtn.dataset.loading = "1";
+  submitBtn.setAttribute("aria-disabled", "true");
+  submitBtn.setAttribute("aria-busy", "true");
+  if (spinnerEl) spinnerEl.classList.remove("hidden");
+  if (btnTextEl) btnTextEl.textContent = "Đang xác thực…";
 
   try {
     const data = await api("/api/auth/login", {
@@ -359,9 +483,20 @@ $("#login-form").addEventListener("submit", async (e) => {
       errBox.textContent = err.message;
     }
     errBox.classList.remove("hidden");
+    errBox.style.animation = "none";
+    void errBox.offsetWidth;
+    errBox.style.animation = "";
+    const pwdInput = $("#login-password");
+    if (pwdInput) {
+      pwdInput.value = "";
+      pwdInput.focus();
+    }
   } finally {
-    submitBtn.disabled = false;
-    submitBtn.querySelector(".btn-text").textContent = "Đăng nhập ngay";
+    delete submitBtn.dataset.loading;
+    submitBtn.removeAttribute("aria-disabled");
+    submitBtn.removeAttribute("aria-busy");
+    if (spinnerEl) spinnerEl.classList.add("hidden");
+    if (btnTextEl) btnTextEl.textContent = "Đăng nhập";
   }
 });
 
@@ -518,26 +653,75 @@ async function openStaffListModal() {
 
 $("#btn-login-staff-list")?.addEventListener("click", openStaffListModal);
 
-// Toggle hiển thị tùy chọn nâng cao (loại mật khẩu & danh sách nhân viên) khi bấm vào logo CRM+
-$("#login-logo-btn")?.addEventListener("click", () => {
-  const typeSwitch = $("#login-type-switch");
-  const staffBtn = $("#btn-login-staff-list");
-  if (!typeSwitch || !staffBtn) return;
-
-  const isHidden = typeSwitch.classList.contains("hidden");
-  if (isHidden) {
-    typeSwitch.classList.remove("hidden");
-    typeSwitch.classList.add("login-advanced-reveal");
-    staffBtn.classList.remove("hidden");
-    staffBtn.classList.add("login-advanced-reveal");
-    toast("Đã hiển thị chọn loại mật khẩu & danh sách nhân viên");
-  } else {
-    typeSwitch.classList.add("hidden");
-    typeSwitch.classList.remove("login-advanced-reveal");
-    staffBtn.classList.add("hidden");
-    staffBtn.classList.remove("login-advanced-reveal");
+// Hiển thị / Ẩn hàng gợi ý "Nội bộ CRMPLUS · Tùy chọn MD5 / Nhân viên"
+function setLoginAdvRevealed(revealed) {
+  const hintRow = $("#login-hint-row");
+  if (hintRow) {
+    hintRow.classList.toggle("hidden", !revealed);
+    hintRow.classList.toggle("revealed", revealed);
   }
+  setLoginAdvOpen(revealed);
+}
+
+// Toggle trượt mượt khối tùy chọn nâng cao (loại mật khẩu & danh sách nhân viên)
+function setLoginAdvOpen(open) {
+  const drawer = $("#login-adv-drawer");
+  const hintBtn = $("#btn-toggle-login-adv");
+  if (!drawer) return;
+  drawer.classList.toggle("open", open);
+  drawer.toggleAttribute("inert", !open);
+  if (hintBtn) {
+    hintBtn.setAttribute("aria-expanded", String(open));
+    const lbl = hintBtn.querySelector("span");
+    if (lbl) lbl.textContent = open ? "Ẩn tùy chọn" : "Tùy chọn MD5 / Nhân viên";
+  }
+}
+
+// Nút "Tùy chọn MD5 / Nhân viên" khi đã hiện thì bấm 1 click để thu gọn/mở rộng drawer
+$("#btn-toggle-login-adv")?.addEventListener("click", () => {
+  const drawer = $("#login-adv-drawer");
+  if (!drawer) return;
+  const nextOpen = !drawer.classList.contains("open");
+  setLoginAdvOpen(nextOpen);
 });
+
+// Xử lý tích đúp (double-click / double-tap) vào logo CRM+ để bật/tắt toàn bộ tùy chọn nâng cao
+function toggleLoginAdvFromLogo() {
+  const hintRow = $("#login-hint-row");
+  const isHidden = !hintRow || hintRow.classList.contains("hidden");
+  if (isHidden) {
+    setLoginAdvRevealed(true);
+    toast("Đã hiển thị tùy chọn MD5 & danh sách nhân viên");
+  } else {
+    setLoginAdvRevealed(false);
+    toast("Đã ẩn tùy chọn nâng cao");
+  }
+}
+
+function bindLogoDoubleTrigger(el) {
+  if (!el) return;
+  // Desktop & mobile native double click
+  el.addEventListener("dblclick", (e) => {
+    e.preventDefault();
+    toggleLoginAdvFromLogo();
+  });
+
+  // Touch double-tap hỗ trợ nhanh trên mobile
+  let lastTouch = 0;
+  el.addEventListener("touchend", (e) => {
+    const now = Date.now();
+    if (now - lastTouch < 350 && now - lastTouch > 40) {
+      e.preventDefault();
+      toggleLoginAdvFromLogo();
+      lastTouch = 0;
+    } else {
+      lastTouch = now;
+    }
+  });
+}
+
+bindLogoDoubleTrigger($("#login-logo-btn"));
+bindLogoDoubleTrigger($("#login-logo-btn-mobile"));
 
 function logout() {
   state.token = "";
@@ -545,9 +729,11 @@ function logout() {
   localStorage.removeItem("crm_token");
   $("#app-view").classList.add("hidden");
   $("#login-view").classList.remove("hidden");
-  $("#login-type-switch")?.classList.add("hidden");
-  $("#btn-login-staff-list")?.classList.add("hidden");
+  setLoginAdvRevealed(false);
+  $("#login-error")?.classList.add("hidden");
+  if ($("#login-password")) $("#login-password").value = "";
   checkDbStatus();
+  $("#login-username")?.focus();
 }
 
 $("#logout-btn").addEventListener("click", logout);
@@ -911,7 +1097,21 @@ async function renderCustomers(filters = {}) {
       loadList();
     });
     $$("[data-view-cust]").forEach((b) =>
-      b.addEventListener("click", () => openCustomerDetail(b.dataset.viewCust)),
+      b.addEventListener("click", () => {
+        const custId = b.dataset.viewCust;
+        const c = customers.find((x) => String(x.idkhachhang) === String(custId));
+        if (c) {
+          if (typeof openCareDetailModal === "function") {
+            openCareDetailModal(c.idkhachhang, c.tenkhachhang, c.dienthoai, c);
+          } else if (typeof window.openCareDetailModal === "function") {
+            window.openCareDetailModal(c.idkhachhang, c.tenkhachhang, c.dienthoai, c);
+          } else {
+            openCustomerDetail(custId);
+          }
+        } else {
+          openCustomerDetail(custId);
+        }
+      }),
     );
     $$("[data-edit-cust]").forEach((b) =>
       b.addEventListener("click", () => openCustomerForm(b.dataset.editCust)),
@@ -1002,15 +1202,15 @@ async function openCustomerForm(id = null, initialData = null) {
         </div>
 
         <div class="input-field-group">
-          <label>Loại dịch vụ, sản phẩm</label>
+          <label>Loại dịch vụ, sản phẩm <span style="color:var(--danger)">*</span></label>
           <div class="input-wrapper">
             <span class="input-icon">
               <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
               </svg>
             </span>
-            <select name="idloaikhachhang" id="cust-modal-loaisp">
-              <option value="">-- Chọn Loại dịch vụ, sản phẩm --</option>
+            <select name="idloaikhachhang" id="cust-modal-loaisp" required>
+              <option value="">-- Chọn Loại dịch vụ, sản phẩm (bắt buộc) * --</option>
               ${optList(loaiSpList, "idloaikhachhang", "tenloaikhachhang", c.idloaikhachhang)}
             </select>
           </div>
@@ -1112,6 +1312,12 @@ async function openCustomerForm(id = null, initialData = null) {
     "modal-customer-form",
   );
 
+  $("#cust-modal-loaisp")?.addEventListener("change", (e) => {
+    if (e.target.value) {
+      e.target.closest(".input-wrapper")?.classList.remove("input-has-error");
+    }
+  });
+
   $("#cust-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const raw = Object.fromEntries(new FormData(e.target).entries());
@@ -1137,6 +1343,31 @@ async function openCustomerForm(id = null, initialData = null) {
       idnhanvien: normalizeVal(raw.idnhanvien),
     };
 
+    if (!payload.tenkhachhang) {
+      toast("Vui lòng nhập tên khách hàng / phòng khám.");
+      $("#cust-form [name='tenkhachhang']")?.focus();
+      return;
+    }
+
+    if (!payload.idloaikhachhang) {
+      toast("Vui lòng chọn loại dịch vụ, sản phẩm trước khi tạo khách hàng mới!");
+      const loaiSpEl = $("#cust-modal-loaisp");
+      if (loaiSpEl) {
+        loaiSpEl.focus();
+        const wrapper = loaiSpEl.closest(".input-wrapper");
+        if (wrapper) {
+          wrapper.classList.add("input-has-error");
+          setTimeout(() => wrapper.classList.remove("input-has-error"), 3000);
+        }
+      }
+      return;
+    }
+
+    const submitBtn = $("#cust-form button[type='submit']");
+    if (submitBtn) {
+      submitBtn.disabled = true;
+    }
+
     try {
       await api(id ? `/api/customers/${id}` : "/api/customers", {
         method: id ? "PUT" : "POST",
@@ -1155,6 +1386,10 @@ async function openCustomerForm(id = null, initialData = null) {
       }
     } catch (err) {
       toast(err.message || "Không thêm khách hàng");
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+      }
     }
   });
 }
@@ -1189,10 +1424,48 @@ async function openCustomerDetail(id) {
         ? data.careHistory
             .map(
               (x) =>
-                `<div style="padding:8px 0;border-bottom:1px solid var(--border)"><strong>${fmtDateTime(x.ngaythang)}</strong> - ${esc(x.tennhanvien)} (${esc(x.tendanhgiakhachhang || "-")})<div>${esc(x.ghichu)}</div></div>`,
+                `<div style="padding:10px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:10px">
+                   <div>
+                     <strong>${fmtDateTime(x.ngaythang)}</strong> - <span>Nhân viên CS: <strong>${esc(x.tennhanvien)}</strong></span> (${esc(x.tendanhgiakhachhang || "-")})
+                     <div style="margin-top:4px">${esc(x.ghichu)}</div>
+                   </div>
+                   <button type="button" class="btn-delete-care-item" data-id="${esc(x.idchamsockhachhang || x.idchamsoc || "")}" title="Xóa lịch sử chăm sóc này">
+                     <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                     </svg>
+                     <span>Xóa</span>
+                   </button>
+                 </div>`,
             )
             .join("")
         : '<p class="muted">Chưa có lịch sử CSKH.</p>';
+
+      body.onclick = async (e) => {
+        const btn = e.target.closest(".btn-delete-care-item");
+        if (!btn) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const idCare = btn.dataset.id;
+        if (!idCare) {
+          toast("Không tìm thấy mã lịch sử chăm sóc cần xóa.");
+          return;
+        }
+        const confirmed = await showConfirmModal({
+          title: "Xác nhận xóa sự kiện chăm sóc",
+          message: `Bạn có chắc chắn muốn xóa sự kiện chăm sóc này không?<br/><br/><strong>Mã chăm sóc:</strong> <span class="badge badge-blue">#${esc(idCare)}</span><br/><br/><span style="color:var(--text-secondary)">Thao tác này sẽ chạy Stored Procedure <code>tblchamsockhachhang_Delete</code> để xóa bản ghi nhật ký chăm sóc này (không xóa thông tin khách hàng).</span>`,
+          confirmText: "Xóa bản ghi chăm sóc",
+          cancelText: "Hủy bỏ",
+          isDanger: true,
+        });
+        if (!confirmed) return;
+        try {
+          const res = await api(`/api/care/${encodeURIComponent(idCare)}`, { method: "DELETE" });
+          toast(res.message || "Đã xóa lịch sử chăm sóc thành công.");
+          openCustomerDetail(id);
+        } catch (err) {
+          toast(`Lỗi khi xóa chăm sóc: ${err.message}`);
+        }
+      };
     } else if (tab === "pkg") {
       body.innerHTML = data.packages.length
         ? data.packages
@@ -1226,6 +1499,575 @@ async function openCustomerDetail(id) {
     b.addEventListener("click", () => renderTab(b.dataset.ctab)),
   );
   renderTab("care");
+}
+
+// ==================== MODAL GHI NHẬN CHĂM SÓC KHÁCH HÀNG (MÔ PHỎNG & NÂNG CẤP CHUẨN CSKH) ====================
+async function openAddCareModal(idkhachhang = null, tenkhachhang = "", onSaved = null) {
+  if (!state.catalogs || !state.catalogs.danhmucDauViecCoDinh || !state.catalogs.nhanVienKyThuat) {
+    try {
+      state.catalogs = await api("/api/catalogs/all");
+    } catch (_) {}
+  }
+  if (!state.catalogs?.danhmucDauViecCoDinh?.length) {
+    try {
+      state.catalogs = state.catalogs || {};
+      state.catalogs.danhmucDauViecCoDinh = await api("/api/catalogs/danhmucdauvieccodinh");
+    } catch (_) {}
+  }
+  if (!state.catalogs?.nhanVienKyThuat?.length) {
+    try {
+      state.catalogs = state.catalogs || {};
+      state.catalogs.nhanVienKyThuat = await api("/api/catalogs/nhanvien-kythuat");
+    } catch (_) {}
+  }
+  if (!state.user) {
+    try {
+      const me = await api("/api/auth/me");
+      state.user = me?.user;
+    } catch (_) {}
+  }
+
+  // Nếu chưa có idkhachhang, tải danh sách khách hàng để chọn
+  let custList = [];
+  if (!idkhachhang) {
+    try {
+      const custData = await api("/api/customers?limit=250");
+      custList = custData?.items || [];
+    } catch (_) {}
+  }
+
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  const nowIso = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+  // Thời gian hẹn mặc định: 7 ngày sau cùng giờ (theo ảnh giao diện desktop: 17/11/2026 -> 24/11/2026 14:40)
+  const appDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  const appDateIso = `${appDate.getFullYear()}-${pad(appDate.getMonth() + 1)}-${pad(appDate.getDate())}T${pad(appDate.getHours())}:${pad(appDate.getMinutes())}`;
+
+  // Người được giao mặc định là tài khoản đang đăng nhập
+  const defaultStaffId = state.user?.idnhanvien || "";
+
+  // Chuẩn hóa tiếng Việt không dấu để so khớp giá trị mặc định
+  const normVi = (s) => (s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+
+  // 1. Hình thức CS mặc định là Điện thoại
+  const defaultHinhThuc = (state.catalogs?.hinhThucChamSoc || []).find((x) =>
+    normVi(x.tenhinhthuc).includes("dien thoai")
+  );
+  const defaultHinhThucId = defaultHinhThuc ? defaultHinhThuc.idhinhthucchamsoc : "";
+
+  // 2. Đánh giá khách hàng mặc định là Tư vấn khách hàng
+  const defaultDanhGia = (state.catalogs?.danhGiaKhachHang || []).find((x) =>
+    normVi(x.tendanhgiakhachhang).includes("tu van khach hang")
+  ) || (state.catalogs?.danhGiaKhachHang || []).find((x) =>
+    normVi(x.tendanhgiakhachhang).includes("tu van")
+  );
+  const defaultDanhGiaId = defaultDanhGia ? defaultDanhGia.iddanhgiakhachhang : "";
+
+  // 3. Lý do chăm sóc mặc định là Khách hàng cần chăm sóc
+  const defaultLyDo = (state.catalogs?.lyDoKhachHang || []).find((x) =>
+    normVi(x.tenlydokhachhang).includes("khach hang can cham soc")
+  ) || (state.catalogs?.lyDoKhachHang || []).find((x) =>
+    normVi(x.tenlydokhachhang).includes("can cham soc")
+  ) || (state.catalogs?.lyDoKhachHang || []).find((x) =>
+    normVi(x.tenlydokhachhang).includes("cham soc")
+  );
+  const defaultLyDoId = defaultLyDo ? defaultLyDo.idlydokhachhang : "";
+
+  openModal(
+    "CHĂM SÓC KHÁCH HÀNG - Thêm thông tin",
+    `
+    <form id="care-quick-form" class="cust-modal-form">
+      <div class="cust-form-grid">
+        ${
+          idkhachhang
+            ? `
+        <div class="input-field-group cust-col-full">
+          <label>Khách hàng:(*)</label>
+          <input type="hidden" name="idkhachhang" value="${esc(idkhachhang)}" />
+          <div class="care-cust-selected-card">
+            <div class="care-cust-avatar">${esc((tenkhachhang || "KH").slice(0, 2).toUpperCase())}</div>
+            <div class="care-cust-info">
+              <strong>${esc(tenkhachhang || "Khách hàng")}</strong>
+              <span>Mã KH: #${esc(idkhachhang)}</span>
+            </div>
+            <span class="care-cust-badge">Đang chăm sóc</span>
+          </div>
+        </div>
+        `
+            : `
+        <div class="input-field-group cust-col-full">
+          <label>Khách hàng:(*)</label>
+          <div class="input-wrapper">
+            <span class="input-icon">
+              <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+              </svg>
+            </span>
+            <select name="idkhachhang" id="care-select-cust" required autofocus>
+              <option value="">-- Chọn khách hàng / Phòng khám (*) --</option>
+              ${custList.map((k) => `<option value="${esc(k.idkhachhang)}">${esc(k.tenkhachhang)} ${k.dienthoai ? `(${esc(k.dienthoai)})` : ""}</option>`).join("")}
+            </select>
+          </div>
+        </div>
+        `
+        }
+
+        <div class="input-field-group">
+          <label>Thời gian:(*)</label>
+          <div class="input-wrapper">
+            <span class="input-icon">
+              <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+              </svg>
+            </span>
+            <input type="datetime-local" name="ngaythang" value="${nowIso}" required />
+          </div>
+        </div>
+
+        <div class="input-field-group care-quantam-group">
+          <label>&nbsp;</label>
+          <label class="care-quantam-toggle" title="Đánh dấu khách hàng đang rất quan tâm giao dịch này">
+            <input type="checkbox" name="isquantam" />
+            <span class="care-quantam-box">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+              </svg>
+              <span>Quan tâm giao dịch này</span>
+            </span>
+          </label>
+        </div>
+
+        <div class="input-field-group">
+          <label>Hình thức:(*)</label>
+          <div class="input-wrapper">
+            <span class="input-icon">
+              <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
+              </svg>
+            </span>
+            <select name="idhinhthucchamsoc" required>
+              <option value="">-- Chọn hình thức CS (*) --</option>
+              ${optList(state.catalogs?.hinhThucChamSoc, "idhinhthucchamsoc", "tenhinhthuc", defaultHinhThucId)}
+            </select>
+          </div>
+        </div>
+
+        <div class="input-field-group">
+          <label>Lý do:(*)</label>
+          <div class="input-wrapper">
+            <span class="input-icon">
+              <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+            </span>
+            <select name="idlydokhachhang" required>
+              <option value="">-- Chọn lý do (*) --</option>
+              ${optList(state.catalogs?.lyDoKhachHang, "idlydokhachhang", "tenlydokhachhang", defaultLyDoId)}
+            </select>
+          </div>
+        </div>
+
+        <div class="input-field-group">
+          <label>Đánh giá:(*)</label>
+          <div class="input-wrapper">
+            <span class="input-icon">
+              <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
+              </svg>
+            </span>
+            <select name="iddanhgiakhachhang" required>
+              <option value="">-- Chọn đánh giá (*) --</option>
+              ${optList(state.catalogs?.danhGiaKhachHang, "iddanhgiakhachhang", "tendanhgiakhachhang", defaultDanhGiaId)}
+            </select>
+          </div>
+        </div>
+
+        <div class="input-field-group">
+          <label>Trạng thái:</label>
+          <div class="input-wrapper">
+            <span class="input-icon">
+              <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+            </span>
+            <select name="idtrangthai">
+              <option value="">---{ Chọn trạng thái }---</option>
+              ${optList(state.catalogs?.trangThai, "idtrangthai", "tentrangthai")}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- CHỌN ĐẦU VIỆC (HỖ TRỢ / LẬP TRÌNH) -->
+      <div class="care-task-box" id="care-task-box-wrapper">
+        <div class="care-task-row1">
+          <label class="care-custom-check">
+            <input type="checkbox" id="chk-care-opt-task" />
+            <span class="care-check-mark"></span>
+            <strong>Chọn đầu việc</strong>
+          </label>
+          <div class="care-task-select-wrapper">
+            <select id="care-task-iddanhmuc" disabled class="care-task-select">
+              <option value="">---{ Chọn đầu việc }---</option>
+              ${optList(state.catalogs?.danhmucDauViecCoDinh, "iddanhmucdauviec", "tendauviec")}
+            </select>
+          </div>
+        </div>
+
+        <div class="care-task-row2 is-disabled" id="care-task-row2-panel">
+          <div class="care-task-support-col">
+            <label class="care-sublabel">Người hỗ trợ</label>
+            <select id="care-task-idnv" disabled class="care-task-support-select">
+              <option value="">---{ Chọn }---</option>
+              ${optList(state.catalogs?.nhanVienKyThuat, "idnhanvien", "hoten")}
+            </select>
+          </div>
+          <div class="care-task-metric-col" title="Điểm đầu việc">
+            <input type="text" id="care-task-diem" value="0," readonly class="care-metric-input" />
+          </div>
+          <div class="care-task-metric-col" title="Giờ dự kiến trên 1 đầu việc">
+            <input type="text" id="care-task-gio" value="0," readonly class="care-metric-input" />
+          </div>
+          <div class="care-task-duyet-col">
+            <label class="care-duyet-toggle" title="Duyệt đầu việc hỗ trợ">
+              <input type="checkbox" id="care-task-duyet" checked disabled />
+              <span class="care-duyet-pill">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+                <span>Duyệt</span>
+              </span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- NỘI DUNG GHI NHẬN -->
+      <div class="input-field-group cust-col-full" style="margin-top:14px">
+        <label>Nội dung:(*) <span style="color:var(--danger)">*</span></label>
+        <div class="input-wrapper is-textarea">
+          <span class="input-icon">
+            <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+            </svg>
+          </span>
+          <textarea name="ghichu" id="care-modal-ghichu" rows="4" placeholder="Nhập chi tiết nội dung cuộc gọi, tư vấn, yêu cầu hỗ trợ hoặc phản hồi của khách hàng..." required></textarea>
+        </div>
+      </div>
+
+      <!-- GIAO VIỆC KỸ THUẬT -->
+      <div class="care-expand-block">
+        <div class="care-expand-header" id="header-care-opt-ktv">
+          <label class="care-expand-check">
+            <input type="checkbox" id="chk-care-opt-ktv" />
+            <strong>Giao việc kỹ thuật</strong>
+          </label>
+          <span class="care-expand-badge">Tùy chọn</span>
+        </div>
+        <div id="care-expand-ktv-body" class="care-expand-content hidden">
+          <div class="cust-form-grid">
+            <div class="input-field-group">
+              <label>Kỹ thuật làm</label>
+              <div class="input-wrapper">
+                <select id="care-ktv-idnv">
+                  <option value="">---{ Chọn }---</option>
+                  ${optList(state.catalogs?.nhanVienKyThuat, "idnhanvien", "hoten")}
+                </select>
+              </div>
+            </div>
+            <div class="input-field-group">
+              <label>Nhóm việc</label>
+              <div class="input-wrapper">
+                <select id="care-ktv-nhomviec">
+                  <option value="">---{ Chọn }---</option>
+                  ${optList(state.catalogs?.nhomDauViecLapTrinh, "idnhomdauvieclaptrinh", "tendauviec")}
+                </select>
+              </div>
+            </div>
+            <div class="input-field-group">
+              <label>Số lượng</label>
+              <div class="input-wrapper">
+                <span class="input-icon">
+                  <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"/>
+                  </svg>
+                </span>
+                <input type="number" id="care-ktv-soluong" value="1" min="1" />
+              </div>
+            </div>
+            <div class="input-field-group">
+              <label>Giờ trên 1 đầu việc (h)</label>
+              <div class="input-wrapper">
+                <span class="input-icon">
+                  <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                </span>
+                <input type="number" id="care-ktv-gio" step="0.1" value="0" min="0" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- THÊM THÔNG TIN LỊCH HẸN -->
+      <div class="care-expand-block">
+        <div class="care-expand-header" id="header-care-opt-app">
+          <label class="care-expand-check">
+            <input type="checkbox" id="chk-care-opt-app" />
+            <strong>Thêm thông tin lịch hẹn</strong>
+          </label>
+          <span class="care-expand-badge">Tùy chọn</span>
+        </div>
+        <div id="care-expand-app-body" class="care-expand-content hidden">
+          <div class="cust-form-grid">
+            <div class="input-field-group">
+              <label>Nội dung hẹn:</label>
+              <div class="input-wrapper">
+                <span class="input-icon">
+                  <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                  </svg>
+                </span>
+                <input type="text" id="care-app-noidung" placeholder="Nội dung lịch hẹn tiếp theo..." />
+              </div>
+            </div>
+            <div class="input-field-group">
+              <label>ĐT:</label>
+              <div class="input-wrapper">
+                <span class="input-icon">
+                  <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
+                  </svg>
+                </span>
+                <input type="text" id="care-app-dienthoai" placeholder="Số điện thoại liên hệ..." />
+              </div>
+            </div>
+            <div class="input-field-group">
+              <label>Thời gian:</label>
+              <div class="input-wrapper">
+                <span class="input-icon">
+                  <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                </span>
+                <input type="datetime-local" id="care-app-thoigian" value="${appDateIso}" />
+              </div>
+            </div>
+            <div class="input-field-group">
+              <label>Người được giao:</label>
+              <div class="input-wrapper">
+                <span class="input-icon">
+                  <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                  </svg>
+                </span>
+                <select id="care-app-idnv">
+                  <option value="">---{ Chọn nhân viên }---</option>
+                  ${optList(state.catalogs?.nhanVien, "idnhanvien", "hoten", defaultStaffId)}
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="cust-modal-actions care-modal-actions">
+        <button type="submit" class="btn btn-primary care-btn-save" id="btn-submit-care-modal">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+            <polyline points="7 3 7 8 15 8"></polyline>
+          </svg>
+          <span>Lưu</span>
+        </button>
+        <button type="button" class="btn btn-outline care-btn-cancel" onclick="closeModal()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+          <span>Huỷ</span>
+        </button>
+      </div>
+    </form>
+    `,
+    true,
+    "modal-care-entry",
+  );
+
+  // Hook checkbox Chọn đầu việc
+  const chkTask = $("#chk-care-opt-task");
+  const selTask = $("#care-task-iddanhmuc");
+  const row2Panel = $("#care-task-row2-panel");
+  const selTaskStaff = $("#care-task-idnv");
+  const chkDuyet = $("#care-task-duyet");
+  const txtDiem = $("#care-task-diem");
+  const txtGio = $("#care-task-gio");
+  const boxWrapper = $("#care-task-box-wrapper");
+
+  chkTask?.addEventListener("change", () => {
+    const isChecked = chkTask.checked;
+    if (selTask) selTask.disabled = !isChecked;
+    if (row2Panel) row2Panel.classList.toggle("is-disabled", !isChecked);
+    if (selTaskStaff) selTaskStaff.disabled = !isChecked;
+    if (chkDuyet) chkDuyet.disabled = !isChecked;
+    if (boxWrapper) boxWrapper.classList.toggle("is-active", isChecked);
+
+    if (!isChecked) {
+      if (selTask) selTask.value = "";
+      if (selTaskStaff) selTaskStaff.value = "";
+      if (txtDiem) txtDiem.value = "0,";
+      if (txtGio) txtGio.value = "0,";
+    }
+  });
+
+  // Khi chọn đầu việc: gọi SP tblnhomdauvieclaptrinh_SelectAll_ByID và tự điền điểm, giờ
+  selTask?.addEventListener("change", async (e) => {
+    const val = e.target.value;
+    if (!val) {
+      if (txtDiem) txtDiem.value = "0,";
+      if (txtGio) txtGio.value = "0,";
+      return;
+    }
+
+    const found = (state.catalogs?.danhmucDauViecCoDinh || []).find((x) => String(x.iddanhmucdauviec) === String(val));
+    let diem = found?.diem != null ? found.diem : 0;
+    let gio = found?.dukiensogiolam != null ? found.dukiensogiolam : 0;
+
+    try {
+      const dataTable = await api(`/api/catalogs/nhomdauvieclaptrinh/${encodeURIComponent(val)}`);
+      if (dataTable) {
+        if (dataTable.diem != null) diem = dataTable.diem;
+        if (dataTable.dukiensogiolam != null) gio = dataTable.dukiensogiolam;
+      }
+    } catch (_) {}
+
+    if (txtDiem) txtDiem.value = `${diem},`;
+    if (txtGio) txtGio.value = `${parseFloat(gio) || 0},`;
+  });
+
+  // Hook toggle accordions cho KTV và Lịch hẹn
+  const bindToggle = (chkId, bodyId) => {
+    const chk = $(`#${chkId}`);
+    const body = $(`#${bodyId}`);
+    if (!chk || !body) return;
+    chk.addEventListener("change", () => {
+      body.classList.toggle("hidden", !chk.checked);
+    });
+  };
+  bindToggle("chk-care-opt-ktv", "care-expand-ktv-body");
+  bindToggle("chk-care-opt-app", "care-expand-app-body");
+
+  // Submit care form
+  $("#care-quick-form")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const payload = {
+      idkhachhang: fd.get("idkhachhang"),
+      ngaythang: fd.get("ngaythang"),
+      idhinhthucchamsoc: fd.get("idhinhthucchamsoc"),
+      iddanhgiakhachhang: fd.get("iddanhgiakhachhang"),
+      idlydokhachhang: fd.get("idlydokhachhang"),
+      idtrangthai: fd.get("idtrangthai") || "",
+      ghichu: fd.get("ghichu")?.trim() || "",
+      idnhanvien: state.user?.idnhanvien || "",
+      isquantam: fd.get("isquantam") === "on",
+    };
+
+    if (!payload.idkhachhang) {
+      toast("Vui lòng chọn khách hàng.");
+      return;
+    }
+    if (!payload.idhinhthucchamsoc) {
+      toast("Vui lòng chọn hình thức chăm sóc.");
+      $("#care-quick-form select[name='idhinhthucchamsoc']")?.focus();
+      return;
+    }
+    if (!payload.idlydokhachhang) {
+      toast("Vui lòng chọn lý do chăm sóc.");
+      $("#care-quick-form select[name='idlydokhachhang']")?.focus();
+      return;
+    }
+    if (!payload.iddanhgiakhachhang) {
+      toast("Vui lòng chọn đánh giá khách hàng.");
+      $("#care-quick-form select[name='iddanhgiakhachhang']")?.focus();
+      return;
+    }
+    if (!payload.ghichu) {
+      toast("Vui lòng nhập nội dung ghi nhận chăm sóc.");
+      $("#care-modal-ghichu")?.focus();
+      return;
+    }
+
+    // Nếu có chọn đầu việc
+    if ($("#chk-care-opt-task")?.checked && $("#care-task-iddanhmuc")?.value) {
+      payload.dauViecCoDinh = {
+        iddanhmucdauviec: $("#care-task-iddanhmuc").value,
+        idnhanvienlam: $("#care-task-idnv")?.value || null,
+        diem: parseFloat($("#care-task-diem")?.value) || 0,
+        dukiensogiolam: parseFloat($("#care-task-gio")?.value) || 0,
+        isduyet: $("#care-task-duyet")?.checked ? 1 : 0,
+      };
+    }
+
+    const submitBtn = $("#btn-submit-care-modal");
+    if (submitBtn) submitBtn.disabled = true;
+
+    try {
+      const res = await api("/api/care", { method: "POST", body: JSON.stringify(payload) });
+
+      // Nếu có tích thêm lịch hẹn
+      if ($("#chk-care-opt-app")?.checked) {
+        const noidungHen = $("#care-app-noidung")?.value?.trim();
+        const thoigianHen = $("#care-app-thoigian")?.value;
+        if (noidungHen && thoigianHen) {
+          try {
+            await api("/api/appointments", {
+              method: "POST",
+              body: JSON.stringify({
+                idkhachhang: payload.idkhachhang,
+                noidunghen: noidungHen,
+                ngayhen: thoigianHen.slice(0, 10),
+                giohen: thoigianHen.slice(11, 16) || "09:00",
+                dienthoaihen: $("#care-app-dienthoai")?.value?.trim() || "",
+                idnguoiduocgiao: $("#care-app-idnv")?.value || payload.idnhanvien,
+              }),
+            });
+          } catch (_) {}
+        }
+      }
+
+      // Nếu có tích giao việc kỹ thuật
+      if ($("#chk-care-opt-ktv")?.checked) {
+        const ktvId = $("#care-ktv-idnv")?.value;
+        const nhomViecId = $("#care-ktv-nhomviec")?.value;
+        if (ktvId && nhomViecId) {
+          try {
+            await api("/api/tasks", {
+              method: "POST",
+              body: JSON.stringify({
+                idkhachhang: payload.idkhachhang,
+                idnguoithuchien: ktvId,
+                idnhomdauvieclaptrinh: nhomViecId,
+                noidung: payload.ghichu || "Giao việc kỹ thuật theo chăm sóc",
+                soluong: Number($("#care-ktv-soluong")?.value) || 1,
+                dukiensogiolam: Number($("#care-ktv-gio")?.value) || 0,
+                ngaybatdau: payload.ngaythang,
+              }),
+            });
+          } catch (_) {}
+        }
+      }
+
+      toast("Đã thêm thông tin chăm sóc khách hàng thành công");
+      closeModal();
+      if (typeof onSaved === "function") onSaved(res);
+    } catch (err) {
+      toast(err.message || "Không thêm được thông tin chăm sóc khách hàng");
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
+    }
+  });
 }
 
 // ==================== CARE (CSKH) ====================
@@ -1284,35 +2126,8 @@ async function renderCare() {
   };
 
   $("#care-search").addEventListener("click", load);
-  $("#btn-add-care").addEventListener("click", async () => {
-    const custs = await api("/api/customers?limit=100");
-    openModal(
-      "Ghi nhận Chăm sóc Khách hàng",
-      `
-      <form id="care-form" class="form-stack">
-        <div class="form-group"><label>Khách hàng *</label><select name="idkhachhang" required>${optList(custs.items, "idkhachhang", "tenkhachhang")}</select></div>
-        <div class="form-grid">
-          <div class="form-group"><label>Hình thức CS</label><select name="idhinhthucchamsoc"><option value="">-- Chọn --</option>${optList(state.catalogs.hinhThucChamSoc, "idhinhthucchamsoc", "tenhinhthuc")}</select></div>
-          <div class="form-group"><label>Đánh giá</label><select name="iddanhgiakhachhang"><option value="">-- Chọn --</option>${optList(state.catalogs.danhGiaKhachHang, "iddanhgiakhachhang", "tendanhgiakhachhang")}</select></div>
-          <div class="form-group"><label>Lý do</label><select name="idlydokhachhang"><option value="">-- Chọn --</option>${optList(state.catalogs.lyDoKhachHang, "idlydokhachhang", "tenlydokhachhang")}</select></div>
-          <div class="form-group"><label>Trạng thái</label><select name="idtrangthai"><option value="">-- Chọn --</option>${optList(state.catalogs.trangThai, "idtrangthai", "tentrangthai")}</select></div>
-        </div>
-        <label class="checkbox-row"><input type="checkbox" name="isquantam" /> Khách đang quan tâm</label>
-        <div class="form-group"><label>Ghi chú nội dung</label><textarea name="ghichu" rows="3" required></textarea></div>
-        <button type="submit" class="btn btn-primary">Lưu nhật ký</button>
-      </form>
-    `,
-    );
-    $("#care-form").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const fd = new FormData(e.target);
-      const payload = Object.fromEntries(fd.entries());
-      payload.isquantam = fd.get("isquantam") === "on";
-      await api("/api/care", { method: "POST", body: JSON.stringify(payload) });
-      toast("Đã lưu nhật ký CSKH");
-      closeModal();
-      load();
-    });
+  $("#btn-add-care").addEventListener("click", () => {
+    openAddCareModal(null, "", () => load());
   });
   await load();
 }
@@ -2621,15 +3436,14 @@ async function renderCustomerSearch() {
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   };
 
-  let activeModalView = "cards"; // "cards" (Dạng thẻ timeline, dễ đọc, không mất chữ) | "table" (Dạng bảng phân cột)
-
-  // Mở modal Chi tiết Chăm sóc Khách hàng (Hiện đại, Hero Header, chuyển đổi Thẻ / Bảng, hiển thị toàn bộ nội dung không mất chữ)
-  const openCareDetailModal = async (
+  // Mở modal Chi tiết Chăm sóc Khách hàng (Hero Header, Dạng thẻ Timeline chi tiết, toàn bộ nội dung hiển thị trọn vẹn)
+  openCareDetailModal = async (
     idkhachhang,
     tenkhachhang,
     dienthoai,
     extraInfo = {},
   ) => {
+    window.openCareDetailModal = openCareDetailModal;
     let careItems = [];
 
     const buildModalHtml = () => `
@@ -2650,6 +3464,12 @@ async function renderCustomerSearch() {
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                 </svg>
                 Sửa KH
+              </button>
+              <button type="button" class="btn btn-outline-danger btn-sm" id="btn-modal-delete-cust" title="Xóa khách hàng khỏi hệ thống">
+                <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                Xóa KH
               </button>
               <button type="button" class="btn btn-primary btn-sm" id="btn-modal-add-care" title="Ghi nhận lần chăm sóc mới">
                 <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -2711,29 +3531,15 @@ async function renderCustomerSearch() {
           </div>
         </div>
 
-        <!-- TOOLBAR: TRẠNG THÁI + NÚT CHUYỂN CHẾ ĐỘ XEM -->
+        <!-- TOOLBAR: TIÊU ĐỀ + BADGE SỐ LƯỢNG (CHỈ HIỂN THỊ DẠNG THẺ) -->
         <div class="care-view-toolbar">
           <div style="display:flex;align-items:center;gap:10px">
             <span style="font-size:13.5px;font-weight:700;color:var(--text-heading)">Lịch sử Chăm sóc Khách hàng</span>
             <span class="badge badge-amber" id="modal-care-count-badge">Đang tải...</span>
           </div>
-          <div class="care-view-switch">
-            <button type="button" class="care-view-btn ${activeModalView === "cards" ? "active" : ""}" data-view="cards" title="Xem dạng thẻ chi tiết, toàn bộ nội dung hiển thị trọn vẹn không bị cắt chữ">
-              <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-              </svg>
-              Dạng thẻ (Dễ đọc)
-            </button>
-            <button type="button" class="care-view-btn ${activeModalView === "table" ? "active" : ""}" data-view="table" title="Xem dạng bảng phân cột">
-              <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
-              Dạng bảng
-            </button>
-          </div>
         </div>
 
-        <!-- KHUNG NỘI DUNG CHĂM SÓC (KHÔNG BỊ CHE / CẮT CHỮ) -->
+        <!-- KHUNG NỘI DUNG CHĂM SÓC (DẠNG THẺ DỄ ĐỌC, KHÔNG BỊ CẮT CHỮ) -->
         <div id="care-modal-body">
           <div style="padding:32px;text-align:center;color:var(--muted)">Đang tải lịch sử chăm sóc...</div>
         </div>
@@ -2781,12 +3587,82 @@ async function renderCustomerSearch() {
       openCustomerForm(idkhachhang);
     });
 
+    // Nút Xóa KH (chạy Stored Procedure dbo.tblkhachhang_Delete)
+    $("#btn-modal-delete-cust")?.addEventListener("click", async () => {
+      const confirmed = await showConfirmModal({
+        title: "Xác nhận xóa khách hàng",
+        message: `Bạn có chắc chắn muốn xóa khách hàng <strong>${esc(tenkhachhang || idkhachhang)}</strong>?<br/><br/><span style="color:var(--danger);font-weight:600">⚠️ Chú ý:</span> Thao tác này sẽ chạy Stored Procedure <code>tblkhachhang_Delete</code> để xóa toàn bộ dữ liệu lịch hẹn, công việc và lịch sử chăm sóc của khách hàng này khỏi hệ thống.`,
+        confirmText: "Xóa vĩnh viễn khách hàng",
+        cancelText: "Hủy bỏ",
+        isDanger: true,
+      });
+      if (!confirmed) return;
+
+      try {
+        const res = await api(`/api/customers/${encodeURIComponent(idkhachhang)}`, {
+          method: "DELETE",
+        });
+        toast(res.message || "Đã xóa khách hàng thành công.");
+        closeModal();
+
+        // 1. Cập nhật và nạp lại "Danh sách Khách hàng tìm được" nếu đang ở màn hình tra cứu
+        if (state.currentPage === "customer-search" || $("#cs-result-card")) {
+          // Lọc bỏ ngay lập tức khách hàng đã xóa khỏi danh sách trong bộ nhớ để bảng phản hồi tức thì
+          allFoundCustomers = (allFoundCustomers || []).filter(
+            (kh) => String(kh.idkhachhang) !== String(idkhachhang),
+          );
+          if (typeof renderCustomerTable === "function") {
+            renderCustomerTable();
+          }
+
+          // Nạp lại dữ liệu tìm kiếm mới nhất từ CSDL SQL Server
+          if (typeof searchCustomers === "function") {
+            await searchCustomers(true);
+          } else if (typeof window.__reloadFoundCustomers === "function") {
+            await window.__reloadFoundCustomers(idkhachhang);
+          } else if (typeof window.__refreshCustomerSearch === "function") {
+            window.__refreshCustomerSearch();
+          }
+        }
+
+        // 2. Cập nhật lại danh sách nếu đang ở tab Khách hàng
+        if (state.currentPage === "customers" && typeof renderCustomers === "function") {
+          renderCustomers();
+        }
+      } catch (err) {
+        toast(`Lỗi khi xóa khách hàng: ${err.message}`);
+      }
+    });
+
     // Nút Ghi nhận CS mới
     $("#btn-modal-add-care")?.addEventListener("click", () => {
       openAddCareModal(idkhachhang, tenkhachhang, () => {
         openCareDetailModal(idkhachhang, tenkhachhang, dienthoai, extraInfo);
       });
     });
+
+    // Hàm tải danh sách lịch sử chăm sóc từ server
+    const loadCareHistory = async () => {
+      try {
+        const data = await api(
+          `/api/customer-search/care?idkhachhang=${encodeURIComponent(idkhachhang)}`,
+        );
+        careItems = data.items || [];
+
+        const countBadge = $("#modal-care-count-badge");
+        if (countBadge) {
+          countBadge.textContent = `${careItems.length} lần chăm sóc`;
+          countBadge.className = `badge ${careItems.length > 0 ? "badge-green" : "badge-amber"}`;
+        }
+
+        renderCareItems();
+      } catch (err) {
+        const bodyEl = $("#care-modal-body");
+        if (bodyEl) {
+          bodyEl.innerHTML = `<div class="modern-alert error">Lỗi tải lịch sử chăm sóc: ${esc(err.message)}</div>`;
+        }
+      }
+    };
 
     // Hàm render danh sách chăm sóc (cards hoặc table)
     const renderCareItems = () => {
@@ -2817,246 +3693,131 @@ async function renderCustomerSearch() {
         return;
       }
 
-      if (activeModalView === "cards") {
-        bodyEl.innerHTML = `
-          <div class="care-cards-list">
-            ${careItems
-              .map(
-                (c) => `
-              <div class="care-item-card">
-                <div class="care-card-header">
-                  <div class="care-card-tags">
-                    <span class="care-stt-chip">#${c.stt || ""}</span>
-                    <span class="care-date-badge">
-                      <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="vertical-align:-1px;margin-right:3px">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                      </svg>
-                      ${fmtDateOnly(c.ngaythang)}
+      // Luôn luôn hiển thị dạng thẻ (Cards view) theo yêu cầu người dùng
+      bodyEl.innerHTML = `
+        <div class="care-cards-list">
+          ${careItems
+            .map(
+              (c) => `
+            <div class="care-item-card">
+              <div class="care-card-header">
+                <div class="care-card-tags">
+                  <span class="care-stt-chip">#${c.stt || ""}</span>
+                  ${
+                    (c.idchamsockhachhang || c.idchamsoc)
+                      ? `
+                    <span class="badge badge-blue cs-copyable-cell" data-copy-val="${esc(c.idchamsockhachhang || c.idchamsoc)}" title="Nhấp để sao chép Mã CS: #${esc(c.idchamsockhachhang || c.idchamsoc)}">
+                      Mã CS: <strong>#${esc(c.idchamsockhachhang || c.idchamsoc)}</strong>
+                      <svg class="cs-copy-icon" width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
                     </span>
-                    <span class="badge badge-blue">${esc(c.tenhinhthuc || "Chăm sóc")}</span>
-                    ${c.tendanhgiakhachhang ? `<span class="badge badge-green">${esc(c.tendanhgiakhachhang)}</span>` : ""}
-                    ${c.tentrangthai ? `<span class="badge badge-amber">${esc(c.tentrangthai)}</span>` : ""}
-                    ${c.isquantam ? `<span class="badge badge-purple" title="Quan tâm sản phẩm">★ Quan tâm SP</span>` : ""}
-                  </div>
-                  <div class="care-card-staff">
-                    Nhân viên CS: <strong>${esc(c.tennhanvien || "-")}</strong>
-                  </div>
+                  `
+                      : ""
+                  }
+                  <span class="care-date-badge">
+                    <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="vertical-align:-1px;margin-right:3px">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                    </svg>
+                    ${fmtDateOnly(c.ngaythang)}
+                  </span>
+                  ${
+                    c.tenhinhthuc &&
+                    !c.tenhinhthuc.toLowerCase().includes("điện thoại") &&
+                    !c.tenhinhthuc.toLowerCase().includes("dien thoai") &&
+                    c.tenhinhthuc !== "Chăm sóc"
+                      ? `<span class="badge badge-blue">${esc(c.tenhinhthuc)}</span>`
+                      : ""
+                  }
+                  ${
+                    c.tendanhgiakhachhang &&
+                    !c.tendanhgiakhachhang.toLowerCase().includes("tư vấn") &&
+                    !c.tendanhgiakhachhang.toLowerCase().includes("tu van") &&
+                    c.tendanhgiakhachhang !== "-"
+                      ? `<span class="badge badge-green">${esc(c.tendanhgiakhachhang)}</span>`
+                      : ""
+                  }
+                  ${
+                    c.tentrangthai && c.tentrangthai !== "-" && c.tentrangthai.trim() !== ""
+                      ? `<span class="badge badge-amber">${esc(c.tentrangthai)}</span>`
+                      : ""
+                  }
+                  ${c.isquantam ? `<span class="badge badge-purple" title="Quan tâm sản phẩm">★ Quan tâm SP</span>` : ""}
                 </div>
-                <div class="care-card-content">${esc(c.noidungchamsoc || c.ghichu || "Không có nội dung")}</div>
+                <div class="care-card-staff">
+                  <span>Nhân viên CS: <strong>${esc(c.tennhanvien || "-")}</strong></span>
+                  <button type="button" class="btn-delete-care-item" data-id="${esc(c.idchamsockhachhang || c.idchamsoc || c.id || "")}" title="Xóa lịch sử chăm sóc này">
+                    <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    <span>Xóa</span>
+                  </button>
+                </div>
               </div>
-            `,
-              )
-              .join("")}
-          </div>
-        `;
-      } else {
-        bodyEl.innerHTML = `
-          <div class="care-table-scroll-container">
-            <table class="care-detail-table">
-              <colgroup>
-                <col style="width: 48px">
-                <col style="width: 105px">
-                <col style="width: 125px">
-                <col style="width: 135px">
-                <col style="width: 130px">
-                <col style="width: auto">
-              </colgroup>
-              <thead>
-                <tr>
-                  <th style="text-align:center">STT</th>
-                  <th style="text-align:center">Ngày CS</th>
-                  <th>Hình thức</th>
-                  <th>Nhân viên</th>
-                  <th>Đánh giá / TT</th>
-                  <th>Nội dung chăm sóc / Ghi chú</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${careItems
-                  .map(
-                    (c) => `
-                  <tr>
-                    <td style="text-align:center;font-weight:700;color:#94a3b8">${c.stt || ""}</td>
-                    <td style="text-align:center"><span class="care-date-badge">${fmtDateOnly(c.ngaythang)}</span></td>
-                    <td><span class="badge badge-blue">${esc(c.tenhinhthuc || "Chăm sóc")}</span></td>
-                    <td><strong style="color:var(--text);font-size:12.5px">${esc(c.tennhanvien || "-")}</strong></td>
-                    <td>
-                      ${c.tendanhgiakhachhang ? `<span class="badge badge-green" style="display:inline-block;margin-bottom:3px">${esc(c.tendanhgiakhachhang)}</span><br>` : ""}
-                      ${c.tentrangthai ? `<span class="badge badge-amber" style="display:inline-block">${esc(c.tentrangthai)}</span>` : ""}
-                      ${!c.tendanhgiakhachhang && !c.tentrangthai ? `<span style="color:var(--muted)">-</span>` : ""}
-                    </td>
-                    <td class="care-note-cell">
-                      <div class="care-note-cell-text">${esc(c.noidungchamsoc || c.ghichu || "-")}</div>
-                    </td>
-                  </tr>
-                `,
-                  )
-                  .join("")}
-              </tbody>
-            </table>
-          </div>
-        `;
-      }
+              <div class="care-card-content">${esc(c.noidungchamsoc || c.ghichu || "Không có nội dung")}</div>
+            </div>
+          `,
+            )
+            .join("")}
+        </div>
+      `;
+
+      // Bắt sự kiện sao chép mã CS & xóa chăm sóc khách hàng bằng event delegation để luôn nhận diện chính xác
+      bodyEl.onclick = async (e) => {
+        // Sao chép Mã CS nếu bấm vào badge
+        const copyEl = e.target.closest(".cs-copyable-cell");
+        if (copyEl) {
+          const val = copyEl.dataset.copyVal || copyEl.textContent.trim();
+          if (val) {
+            try {
+              await copyToClipboard(val);
+              toast(`Đã sao chép: "${val}"`);
+              copyEl.classList.add("copied-highlight");
+              setTimeout(() => copyEl.classList.remove("copied-highlight"), 1000);
+            } catch (_) {}
+          }
+          return;
+        }
+
+        const btn = e.target.closest(".btn-delete-care-item");
+        if (!btn) return;
+        e.preventDefault();
+        e.stopPropagation();
+
+        const idCare = btn.dataset.id || btn.getAttribute("data-id");
+        if (!idCare) {
+          toast("Không tìm thấy mã lịch sử chăm sóc cần xóa.");
+          return;
+        }
+
+        const confirmed = await showConfirmModal({
+          title: "Xác nhận xóa sự kiện chăm sóc",
+          message: `Bạn có chắc chắn muốn xóa sự kiện chăm sóc này không?<br/><br/><strong>Mã chăm sóc:</strong> <span class="badge badge-blue">#${esc(idCare)}</span><br/><br/><span style="color:var(--text-secondary)">Thao tác này sẽ chạy Stored Procedure <code>tblchamsockhachhang_Delete</code> để xóa bản ghi nhật ký chăm sóc này (không xóa thông tin khách hàng).</span>`,
+          confirmText: "Xóa bản ghi chăm sóc",
+          cancelText: "Hủy bỏ",
+          isDanger: true,
+        });
+        if (!confirmed) return;
+
+        try {
+          btn.disabled = true;
+          btn.style.opacity = "0.5";
+          const res = await api(`/api/care/${encodeURIComponent(idCare)}`, {
+            method: "DELETE",
+          });
+          toast(res.message || "Đã xóa lịch sử chăm sóc thành công.");
+          await loadCareHistory();
+        } catch (err) {
+          btn.disabled = false;
+          btn.style.opacity = "1";
+          toast(`Lỗi khi xóa chăm sóc: ${err.message}`);
+        }
+      };
     };
 
-    // Chuyển chế độ xem giữa Dạng thẻ và Dạng bảng
-    $$(".care-view-btn").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        $$(".care-view-btn").forEach((b) => b.classList.remove("active"));
-        btn.classList.add("active");
-        activeModalView = btn.dataset.view;
-        renderCareItems();
-      });
-    });
-
-    try {
-      const data = await api(
-        `/api/customer-search/care?idkhachhang=${encodeURIComponent(idkhachhang)}`,
-      );
-      careItems = data.items || [];
-
-      const countBadge = $("#modal-care-count-badge");
-      if (countBadge) {
-        countBadge.textContent = `${careItems.length} lần chăm sóc`;
-        countBadge.className = `badge ${careItems.length > 0 ? "badge-green" : "badge-amber"}`;
-      }
-
-      renderCareItems();
-    } catch (err) {
-      const bodyEl = $("#care-modal-body");
-      if (bodyEl) {
-        bodyEl.innerHTML = `<div class="modern-alert error">Lỗi tải lịch sử chăm sóc: ${esc(err.message)}</div>`;
-      }
-    }
-  };
-
-  // Mở modal nhanh ghi nhận chăm sóc khách hàng
-  const openAddCareModal = (idkhachhang, tenkhachhang, onSaved) => {
-    openModal(
-      `Ghi nhận Chăm sóc: ${tenkhachhang || "Khách hàng"}`,
-      `
-      <form id="care-quick-form" class="cust-modal-form">
-        <input type="hidden" name="idkhachhang" value="${esc(idkhachhang)}" />
-        <div class="cust-form-grid">
-          <div class="input-field-group cust-col-full">
-            <label>Khách hàng</label>
-            <div class="input-wrapper">
-              <span class="input-icon">
-                <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
-                </svg>
-              </span>
-              <input type="text" value="${esc(tenkhachhang)}" readonly style="font-weight:700;color:var(--primary);background:var(--surface-subtle)" />
-            </div>
-          </div>
-          <div class="input-field-group">
-            <label>Hình thức CS</label>
-            <div class="input-wrapper">
-              <span class="input-icon">
-                <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
-                </svg>
-              </span>
-              <select name="idhinhthucchamsoc">
-                <option value="">-- Chọn hình thức CS --</option>
-                ${optList(state.catalogs?.hinhThucChamSoc, "idhinhthucchamsoc", "tenhinhthuc")}
-              </select>
-            </div>
-          </div>
-          <div class="input-field-group">
-            <label>Đánh giá</label>
-            <div class="input-wrapper">
-              <span class="input-icon">
-                <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
-                </svg>
-              </span>
-              <select name="iddanhgiakhachhang">
-                <option value="">-- Chọn đánh giá --</option>
-                ${optList(state.catalogs?.danhGiaKhachHang, "iddanhgiakhachhang", "tendanhgiakhachhang")}
-              </select>
-            </div>
-          </div>
-          <div class="input-field-group">
-            <label>Lý do</label>
-            <div class="input-wrapper">
-              <span class="input-icon">
-                <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                </svg>
-              </span>
-              <select name="idlydokhachhang">
-                <option value="">-- Chọn lý do --</option>
-                ${optList(state.catalogs?.lyDoKhachHang, "idlydokhachhang", "tenlydokhachhang")}
-              </select>
-            </div>
-          </div>
-          <div class="input-field-group">
-            <label>Trạng thái</label>
-            <div class="input-wrapper">
-              <span class="input-icon">
-                <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                </svg>
-              </span>
-              <select name="idtrangthai">
-                <option value="">-- Chọn trạng thái --</option>
-                ${optList(state.catalogs?.trangThai, "idtrangthai", "tentrangthai")}
-              </select>
-            </div>
-          </div>
-          <div class="input-field-group cust-col-full">
-            <label>Nội dung / Ghi chú chăm sóc <span style="color:var(--danger)">*</span></label>
-            <div class="input-wrapper is-textarea">
-              <span class="input-icon">
-                <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                </svg>
-              </span>
-              <textarea name="ghichu" rows="3" placeholder="Nhập chi tiết nội dung cuộc gọi, trao đổi, thắc mắc hoặc phản hồi của phòng khám..." required></textarea>
-            </div>
-          </div>
-        </div>
-
-        <div style="margin: 12px 0 6px">
-          <label class="checkbox-row" style="display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;cursor:pointer">
-            <input type="checkbox" name="isquantam" /> Khách đang quan tâm phần mềm / sản phẩm
-          </label>
-        </div>
-
-        <div class="cust-modal-actions">
-          <button type="button" class="btn btn-outline" onclick="closeModal()">Hủy</button>
-          <button type="submit" class="btn btn-primary" style="display:inline-flex;align-items:center;gap:6px">
-            <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-            </svg>
-            Lưu nhật ký chăm sóc
-          </button>
-        </div>
-      </form>
-      `,
-      true,
-      "modal-customer-form",
-    );
-
-    $("#care-quick-form")?.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const fd = new FormData(e.target);
-      const payload = Object.fromEntries(fd.entries());
-      payload.isquantam = fd.get("isquantam") === "on";
-      try {
-        await api("/api/care", { method: "POST", body: JSON.stringify(payload) });
-        toast("Đã lưu nhật ký chăm sóc thành công");
-        closeModal();
-        if (typeof onSaved === "function") onSaved();
-      } catch (err) {
-        toast(`Lỗi lưu chăm sóc: ${err.message}`);
-      }
-    });
+    await loadCareHistory();
   };
 
   // Hàm render bảng khách hàng theo trang hiện tại (Phân trang 10 - 50 - 100 & Trang 1, 2, 3...)
-  const renderCustomerTable = () => {
+  function renderCustomerTable() {
     const tableWrap = $("#cs-table-wrap");
     if (!tableWrap) return;
 
@@ -3381,14 +4142,14 @@ async function renderCustomerSearch() {
     });
   };
 
-  // Tìm kiếm khách hàng theo các tiêu chí đã nhập
-  const searchCustomers = async () => {
+  // Tìm kiếm khách hàng theo các tiêu chí đã nhập (hoặc nạp lại danh sách khi xóa/thêm/sửa)
+  async function searchCustomers(isReload = false) {
     const tenkhachhang = $("#cs-name")?.value?.trim() || "";
     const dienthoai = $("#cs-phone")?.value?.trim() || "";
     const diachi = $("#cs-address")?.value?.trim() || "";
     const makhachhang = $("#cs-code")?.value?.trim() || "";
 
-    if (!tenkhachhang && !dienthoai && !diachi && !makhachhang) {
+    if (!isReload && !tenkhachhang && !dienthoai && !diachi && !makhachhang) {
       toast(
         "Vui lòng nhập ít nhất một thông tin để tra cứu (Tên, SĐT, Địa chỉ hoặc Mã KH).",
       );
@@ -3401,36 +4162,40 @@ async function renderCustomerSearch() {
     if (diachi) qs.set("diachi", diachi);
     if (makhachhang) qs.set("makhachhang", makhachhang);
 
-    // Mở khung danh sách khách hàng
+    // Mở khung danh sách khách hàng tìm được
     $("#cs-result-card")?.classList.remove("hidden");
     selectedCustId = null;
 
-    $("#cs-table-wrap").innerHTML = `
-      <div style="padding:28px;text-align:center;color:var(--muted)">
-        Đang tra cứu dữ liệu khách hàng từ SQL Server...
-      </div>
-    `;
+    if (!isReload || !allFoundCustomers.length) {
+      $("#cs-table-wrap").innerHTML = `
+        <div style="padding:28px;text-align:center;color:var(--muted)">
+          Đang tra cứu dữ liệu khách hàng từ SQL Server...
+        </div>
+      `;
+    }
 
     try {
       const data = await api(`/api/customer-search?${qs.toString()}`);
       allFoundCustomers = data.items || [];
-      csCurrentPage = 1;
+      if (!isReload) {
+        csCurrentPage = 1;
+      }
       renderCustomerTable();
     } catch (err) {
       $("#cs-table-wrap").innerHTML =
         `<div class="modern-alert error">Lỗi tra cứu khách hàng: ${esc(err.message)}</div>`;
     }
-  };
+  }
 
   // Bắt sự kiện bấm nút Tìm kiếm
-  $("#btn-cs-search")?.addEventListener("click", searchCustomers);
+  $("#btn-cs-search")?.addEventListener("click", () => searchCustomers(false));
 
   // Phím Enter trên các ô tìm kiếm
   ["#cs-name", "#cs-phone", "#cs-address", "#cs-code"].forEach((sel) => {
     $(sel)?.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
         e.preventDefault();
-        searchCustomers();
+        searchCustomers(false);
       }
     });
   });
@@ -3460,6 +4225,17 @@ async function renderCustomerSearch() {
   // Nút thêm khách hàng mới bên dưới danh sách tìm được
   $("#btn-cs-add-customer")?.addEventListener("click", handleOpenAddCust);
 
+  // Hook nạp lại danh sách khách hàng tìm được khi có khách hàng bị xóa
+  window.__reloadFoundCustomers = async (deletedId = null) => {
+    if (deletedId) {
+      allFoundCustomers = (allFoundCustomers || []).filter(
+        (kh) => String(kh.idkhachhang) !== String(deletedId)
+      );
+      renderCustomerTable();
+    }
+    await searchCustomers(true);
+  };
+
   // Tự động làm mới kết quả tra cứu và tự chọn khách hàng mới thêm
   window.__refreshCustomerSearch = (payload) => {
     if (payload) {
@@ -3470,7 +4246,7 @@ async function renderCustomerSearch() {
       if (payload.diachi && $("#cs-address"))
         $("#cs-address").value = payload.diachi;
     }
-    searchCustomers();
+    searchCustomers(true);
   };
 }
 

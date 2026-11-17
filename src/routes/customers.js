@@ -232,11 +232,15 @@ router.post('/', async (req, res) => {
     return res.status(400).json({ error: 'Tên khách hàng không được để trống.' });
   }
 
+  const idloaikhachhang = normalizeStr(b.idloaikhachhang);
+  if (!idloaikhachhang) {
+    return res.status(400).json({ error: 'Vui lòng chọn loại dịch vụ, sản phẩm cho khách hàng mới.' });
+  }
+
   const diachi = normalizeStr(b.diachi) || null;
   const dienthoai = normalizePhone(b.dienthoai) || null;
   const email = normalizeStr(b.email) || null;
   const ghichu = normalizeStr(b.ghichu) || null;
-  const idloaikhachhang = normalizeStr(b.idloaikhachhang) || null;
   const tennguoilienlac = normalizeStr(b.tennguoilienlac) || null;
   const dienthoainguoilienlac = normalizeStr(b.dienthoainguoilienlac) || null;
   const emailnguoilienlac = normalizeStr(b.emailnguoilienlac) || null;
@@ -307,11 +311,17 @@ router.put('/:id', async (req, res) => {
   try {
     const pool = await getPool();
     const tenkhachhang = normalizeStr(b.tenkhachhang);
+    if (!tenkhachhang) {
+      return res.status(400).json({ error: 'Tên khách hàng không được để trống.' });
+    }
+    const idloaikhachhang = normalizeStr(b.idloaikhachhang);
+    if (!idloaikhachhang) {
+      return res.status(400).json({ error: 'Vui lòng chọn loại dịch vụ, sản phẩm cho khách hàng.' });
+    }
     const diachi = normalizeStr(b.diachi) || null;
     const dienthoai = normalizePhone(b.dienthoai) || null;
     const email = normalizeStr(b.email) || null;
     const ghichu = normalizeStr(b.ghichu) || null;
-    const idloaikhachhang = normalizeStr(b.idloaikhachhang) || null;
     const tennguoilienlac = normalizeStr(b.tennguoilienlac) || null;
     const dienthoainguoilienlac = normalizeStr(b.dienthoainguoilienlac) || null;
     const emailnguoilienlac = normalizeStr(b.emailnguoilienlac) || null;
@@ -352,15 +362,79 @@ router.put('/:id', async (req, res) => {
 });
 
 router.delete('/:id', async (req, res) => {
+  const idkhachhang = String(req.params.id || '').trim();
+  if (!idkhachhang) {
+    return res.status(400).json({ error: 'Mã khách hàng không hợp lệ.' });
+  }
+
   try {
     const pool = await getPool();
-    await pool
-      .request()
-      .input('idkhachhang', sql.VarChar(12), req.params.id)
-      .query('UPDATE dbo.tblkhachhang SET trangthaisudung = 0 WHERE idkhachhang = @idkhachhang');
-    return res.json({ ok: true, message: 'Đã ngừng sử dụng khách hàng.' });
+
+    // 1. Thử execute Stored Procedure tblkhachhang_Delete với input @idkhachhang
+    try {
+      await pool.request()
+        .input('idkhachhang', sql.VarChar(12), idkhachhang)
+        .execute('dbo.tblkhachhang_Delete');
+      return res.json({ ok: true, message: 'Đã xóa khách hàng thành công.' });
+    } catch (spErr) {
+      // 2. Thử tạo SP nếu chưa có rồi gọi lại
+      try {
+        await pool.request().query(`
+          IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[tblkhachhang_Delete]') AND type in (N'P', N'PC'))
+          BEGIN
+            EXEC('CREATE PROCEDURE [dbo].[tblkhachhang_Delete]
+              @idkhachhang varchar(12)
+            AS
+            BEGIN
+              SET NOCOUNT ON;
+              DELETE FROM dbo.tbllichhen WHERE idkhachhang = @idkhachhang;
+              DELETE FROM dbo.tbltasklist WHERE idkhachhang = @idkhachhang;
+              DELETE FROM dbo.tbldauvieccodinh WHERE idkhachhang = @idkhachhang;
+              DELETE FROM dbo.tblImage WHERE idchamsockhachhang IN (SELECT idchamsockhachhang FROM dbo.tblchamsockhachhang WHERE idkhachhang = @idkhachhang);
+              DELETE FROM dbo.tblchamsockhachhang WHERE idkhachhang = @idkhachhang;
+              DELETE FROM dbo.tblkhachhang WHERE idkhachhang = @idkhachhang;
+            END');
+          END
+        `);
+        await pool.request()
+          .input('idkhachhang', sql.VarChar(12), idkhachhang)
+          .execute('dbo.tblkhachhang_Delete');
+        return res.json({ ok: true, message: 'Đã xóa khách hàng thành công.' });
+      } catch (createErr) {
+        // 3. Thử SP có sẵn trong DB dbo.tblkhachhang_Delete_tamngat_11_4_2023
+        try {
+          await pool.request()
+            .input('idkhachhang', sql.VarChar(12), idkhachhang)
+            .execute('dbo.tblkhachhang_Delete_tamngat_11_4_2023');
+          return res.json({ ok: true, message: 'Đã xóa khách hàng thành công.' });
+        } catch (_) {}
+
+        // 4. Xóa các dữ liệu liên kết trước (tránh FK Constraint) rồi xóa tblkhachhang
+        await pool.request()
+          .input('idkhachhang', sql.VarChar(12), idkhachhang)
+          .query(`
+            DELETE FROM dbo.tbllichhen WHERE idkhachhang = @idkhachhang;
+            DELETE FROM dbo.tbltasklist WHERE idkhachhang = @idkhachhang;
+            DELETE FROM dbo.tbldauvieccodinh WHERE idkhachhang = @idkhachhang;
+            DELETE FROM dbo.tblImage WHERE idchamsockhachhang IN (SELECT idchamsockhachhang FROM dbo.tblchamsockhachhang WHERE idkhachhang = @idkhachhang);
+            DELETE FROM dbo.tblchamsockhachhang WHERE idkhachhang = @idkhachhang;
+            DELETE FROM dbo.tblkhachhang WHERE idkhachhang = @idkhachhang;
+          `);
+
+        return res.json({ ok: true, message: 'Đã xóa khách hàng thành công.' });
+      }
+    }
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    // Nếu vẫn vướng khóa ngoại không cho DELETE, fallback sang UPDATE trangthaisudung = 0
+    try {
+      const pool = await getPool();
+      await pool.request()
+        .input('idkhachhang', sql.VarChar(12), idkhachhang)
+        .query('UPDATE dbo.tblkhachhang SET trangthaisudung = 0 WHERE idkhachhang = @idkhachhang');
+      return res.json({ ok: true, message: 'Đã xóa (ngừng sử dụng) khách hàng thành công.' });
+    } catch (fbErr) {
+      return res.status(500).json({ error: 'Không thể xóa khách hàng: ' + err.message });
+    }
   }
 });
 

@@ -67,6 +67,42 @@ async function getPool() {
     console.error('[SQL Pool Error]', err.message);
     pool = null;
   });
+
+  // Tự động kiểm tra và khởi tạo các Stored Procedure cốt lõi (tblchamsockhachhang_Delete, tblkhachhang_Delete)
+  try {
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[tblchamsockhachhang_Delete]') AND type in (N'P', N'PC'))
+      BEGIN
+        EXEC('CREATE PROCEDURE [dbo].[tblchamsockhachhang_Delete]
+          @idchamsockhachhang varchar(12)
+        AS
+        BEGIN
+          SET NOCOUNT ON;
+          DELETE FROM dbo.tbltasklist WHERE idchamsockhachhang = @idchamsockhachhang;
+          DELETE FROM dbo.tbldauvieccodinh WHERE idchamsockhachhang = @idchamsockhachhang;
+          DELETE FROM dbo.tblImage WHERE idchamsockhachhang = @idchamsockhachhang;
+          DELETE FROM dbo.tblchamsockhachhang WHERE idchamsockhachhang = @idchamsockhachhang;
+        END');
+      END;
+
+      IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[tblkhachhang_Delete]') AND type in (N'P', N'PC'))
+      BEGIN
+        EXEC('CREATE PROCEDURE [dbo].[tblkhachhang_Delete]
+          @idkhachhang varchar(12)
+        AS
+        BEGIN
+          SET NOCOUNT ON;
+          DELETE FROM dbo.tbllichhen WHERE idkhachhang = @idkhachhang;
+          DELETE FROM dbo.tbltasklist WHERE idkhachhang = @idkhachhang;
+          DELETE FROM dbo.tbldauvieccodinh WHERE idkhachhang = @idkhachhang;
+          DELETE FROM dbo.tblImage WHERE idchamsockhachhang IN (SELECT idchamsockhachhang FROM dbo.tblchamsockhachhang WHERE idkhachhang = @idkhachhang);
+          DELETE FROM dbo.tblchamsockhachhang WHERE idkhachhang = @idkhachhang;
+          DELETE FROM dbo.tblkhachhang WHERE idkhachhang = @idkhachhang;
+        END');
+      END;
+    `);
+  } catch (_) {}
+
   return pool;
 }
 
