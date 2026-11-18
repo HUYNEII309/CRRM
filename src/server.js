@@ -18,6 +18,7 @@ const customerSearchRoutes = require('./routes/customerSearch');
 const salesStatsRoutes = require('./routes/salesStats');
 const financeRoutes = require('./routes/finance');
 const staffRoutes = require('./routes/staff');
+const timesheetRoutes = require('./routes/timesheet');
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);  
@@ -49,6 +50,7 @@ app.use('/api/customer-search', customerSearchRoutes);
 app.use('/api/sales-stats', salesStatsRoutes);
 app.use('/api/finance', financeRoutes);
 app.use('/api/staff', staffRoutes);
+app.use('/api/timesheet', timesheetRoutes);
 
 app.get('*', (req, res) => {
   if (req.path.startsWith('/api/')) {

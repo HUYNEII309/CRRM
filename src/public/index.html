@@ -193,7 +193,7 @@
   </div>
 
   <!-- MAIN APP SHELL -->
-  <div id="app-view" class="app-shell hidden">
+  <div id="app-view" class="app-shell sidebar-hidden hidden">
     <!-- Mobile Backdrop Drawer Overlay -->
     <div id="sidebar-backdrop" class="sidebar-backdrop"></div>
 
@@ -248,13 +248,35 @@
           </span>
           <span class="nav-label">Thống kê SP Bán ra</span>
         </button>
+
+        <button class="nav-item" data-page="timesheet">
+          <span class="nav-icon">
+            <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+            </svg>
+          </span>
+          <span class="nav-label">Bảng chấm công</span>
+        </button>
       </nav>
       <div class="sidebar-footer">
-        <div class="user-card-modern">
-          <div class="user-avatar-modern" id="user-avatar">NV</div>
-          <div class="user-meta-modern">
-            <strong id="user-name">Nhân viên</strong>
-            <small id="user-dept">Bộ phận</small>
+        <div class="sidebar-user-wrap" id="sidebar-user-wrap">
+          <button type="button" class="user-card-modern user-card-clickable" id="btn-sidebar-user" aria-expanded="false" title="Nhấp để hiện tùy chọn đổi mật khẩu">
+            <div class="user-avatar-modern" id="user-avatar">NV</div>
+            <div class="user-meta-modern">
+              <strong id="user-name">Nhân viên</strong>
+              <small id="user-dept">Bộ phận</small>
+            </div>
+            <svg class="user-menu-caret" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </button>
+          <div class="sidebar-user-actions hidden" id="sidebar-user-actions">
+            <button type="button" id="btn-sidebar-change-pwd" class="btn-sidebar-change-pwd">
+              <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+              </svg>
+              <span>Đổi mật khẩu</span>
+            </button>
           </div>
         </div>
         <button id="logout-btn" class="btn-logout-modern" title="Đăng xuất khỏi hệ thống">
@@ -297,9 +319,32 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
             </svg>
           </button>
-          <div class="topbar-user-pill">
-            <span class="topbar-avatar" id="topbar-user-avatar">NV</span>
-            <span class="topbar-username" id="topbar-user-name">Nhân viên</span>
+          <div class="topbar-user-menu-wrap" id="topbar-user-menu-wrap">
+            <button type="button" class="topbar-user-pill topbar-user-clickable" id="btn-topbar-user" aria-expanded="false" title="Tùy chọn tài khoản">
+              <span class="topbar-avatar" id="topbar-user-avatar">NV</span>
+              <span class="topbar-username" id="topbar-user-name">Nhân viên</span>
+              <svg class="user-menu-caret" width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+              </svg>
+            </button>
+            <div class="user-popover-menu hidden" id="topbar-user-menu" role="menu">
+              <div class="user-popover-header">
+                <strong id="topbar-menu-name">Nhân viên</strong>
+                <small id="topbar-menu-account">Tài khoản đăng nhập</small>
+              </div>
+              <button type="button" class="user-popover-item" id="btn-topbar-change-pwd" role="menuitem">
+                <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+                </svg>
+                <span>Đổi mật khẩu</span>
+              </button>
+              <button type="button" class="user-popover-item danger" id="btn-topbar-logout" role="menuitem">
+                <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                </svg>
+                <span>Đăng xuất</span>
+              </button>
+            </div>
           </div>
         </div>
       </header>

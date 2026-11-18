@@ -720,7 +720,360 @@ function logout() {
   $("#login-username")?.focus();
 }
 
-$("#logout-btn").addEventListener("click", logout);
+function closeUserMenus() {
+  const topMenu = $("#topbar-user-menu");
+  const topBtn = $("#btn-topbar-user");
+  if (topMenu) topMenu.classList.add("hidden");
+  if (topBtn) {
+    topBtn.setAttribute("aria-expanded", "false");
+    topBtn.classList.remove("open");
+  }
+  const sbActions = $("#sidebar-user-actions");
+  const sbBtn = $("#btn-sidebar-user");
+  if (sbActions) sbActions.classList.add("hidden");
+  if (sbBtn) {
+    sbBtn.setAttribute("aria-expanded", "false");
+    sbBtn.classList.remove("open");
+  }
+}
+
+$("#btn-topbar-user")?.addEventListener("click", (e) => {
+  e.stopPropagation();
+  const menu = $("#topbar-user-menu");
+  const btn = $("#btn-topbar-user");
+  if (!menu || !btn) return;
+  const willOpen = menu.classList.contains("hidden");
+  closeUserMenus();
+  if (willOpen) {
+    menu.classList.remove("hidden");
+    btn.setAttribute("aria-expanded", "true");
+    btn.classList.add("open");
+  }
+});
+
+$("#btn-sidebar-user")?.addEventListener("click", (e) => {
+  e.stopPropagation();
+  const actions = $("#sidebar-user-actions");
+  const btn = $("#btn-sidebar-user");
+  if (!actions || !btn) return;
+  const willOpen = actions.classList.contains("hidden");
+  actions.classList.toggle("hidden", !willOpen);
+  btn.setAttribute("aria-expanded", String(willOpen));
+  btn.classList.toggle("open", willOpen);
+});
+
+document.addEventListener("click", (e) => {
+  if (!e.target.closest("#topbar-user-menu-wrap")) {
+    const topMenu = $("#topbar-user-menu");
+    const topBtn = $("#btn-topbar-user");
+    if (topMenu) topMenu.classList.add("hidden");
+    if (topBtn) {
+      topBtn.setAttribute("aria-expanded", "false");
+      topBtn.classList.remove("open");
+    }
+  }
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    closeUserMenus();
+  }
+});
+
+function openChangePasswordModal() {
+  closeUserMenus();
+  const user = state.user || {};
+  const displayName = user.hoten || user.tendangnhap || "Nhân viên";
+  const accountName = user.tendangnhap || "";
+  const staffId = user.idnhanvien || "";
+
+  let verifiedOldPassword = "";
+
+  const eyeSvg = `
+    <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+      <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+    </svg>
+  `;
+
+  openModal(
+    "Đổi mật khẩu tài khoản",
+    `
+    <div class="cp-modal-wrap">
+      <div class="cp-account-card">
+        <div class="cp-account-avatar">${esc(displayName.slice(0, 2).toUpperCase())}</div>
+        <div class="cp-account-meta">
+          <strong>${esc(displayName)}</strong>
+          <div class="cp-account-sub">
+            <span>Tài khoản: <code>${esc(accountName || "—")}</code></span>
+            <span>·</span>
+            <span>Mã NV: <code>${esc(staffId || "—")}</code></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- BƯỚC 1: KIỂM TRA MẬT KHẨU CŨ (DẠNG THƯỜNG HOẶC MD5) -->
+      <div class="cp-step-box" id="cp-step1-box">
+        <div class="cp-step-head">
+          <span class="cp-step-num" id="cp-step1-badge">1</span>
+          <div>
+            <strong>Xác thực mật khẩu cũ</strong>
+            <small>Nhập mật khẩu hiện đang sử dụng (hỗ trợ dạng thường hoặc chuỗi MD5)</small>
+          </div>
+        </div>
+
+        <div class="cp-old-row">
+          <div class="cp-input-wrap">
+            <input type="password" id="cp-old-pwd" placeholder="Nhập mật khẩu cũ (dạng thường hoặc MD5)..." autocomplete="current-password" />
+            <button type="button" class="cp-eye-btn" data-cp-eye="cp-old-pwd" title="Hiện/Ẩn mật khẩu">${eyeSvg}</button>
+          </div>
+          <button type="button" class="btn btn-primary btn-sm cp-verify-btn" id="btn-cp-verify">
+            Kiểm tra
+          </button>
+          <button type="button" class="btn btn-outline btn-sm hidden" id="btn-cp-reenter" title="Nhập lại mật khẩu cũ">
+            Nhập lại
+          </button>
+        </div>
+        <div class="cp-feedback hidden" id="cp-old-feedback"></div>
+      </div>
+
+      <!-- BƯỚC 2: NHẬP MẬT KHẨU MỚI & XÁC NHẬN (CHỈ HIỆN KHI BƯỚC 1 HỢP LỆ) -->
+      <form class="cp-step-box cp-step2 hidden" id="cp-step2-form" novalidate>
+        <div class="cp-step-head">
+          <span class="cp-step-num active">2</span>
+          <div>
+            <strong>Thiết lập mật khẩu mới</strong>
+            <small>Mật khẩu mới sẽ được mã hóa chuẩn MD5 và lưu tự động vào hệ thống</small>
+          </div>
+        </div>
+
+        <div class="cp-field">
+          <label for="cp-new-pwd">Mật khẩu mới <span style="color:var(--danger)">*</span></label>
+          <div class="cp-input-wrap">
+            <input type="password" id="cp-new-pwd" placeholder="Nhập mật khẩu mới..." autocomplete="new-password" />
+            <button type="button" class="cp-eye-btn" data-cp-eye="cp-new-pwd" title="Hiện/Ẩn mật khẩu">${eyeSvg}</button>
+          </div>
+        </div>
+
+        <div class="cp-field">
+          <label for="cp-confirm-pwd">Xác nhận mật khẩu mới <span style="color:var(--danger)">*</span></label>
+          <div class="cp-input-wrap">
+            <input type="password" id="cp-confirm-pwd" placeholder="Nhập lại mật khẩu mới để xác nhận..." autocomplete="new-password" />
+            <button type="button" class="cp-eye-btn" data-cp-eye="cp-confirm-pwd" title="Hiện/Ẩn mật khẩu">${eyeSvg}</button>
+          </div>
+        </div>
+
+        <div class="cp-feedback hidden" id="cp-match-feedback"></div>
+
+        <div class="cp-modal-actions">
+          <button type="button" class="btn btn-outline btn-sm" id="btn-cp-cancel">Hủy bỏ</button>
+          <button type="submit" class="btn btn-primary btn-sm" id="btn-cp-save" disabled>
+            Lưu mật khẩu mới
+          </button>
+        </div>
+      </form>
+    </div>
+    `
+  );
+
+  // Nút hiện/ẩn mật khẩu cho cả 3 ô nhập
+  $$("[data-cp-eye]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const targetInput = document.getElementById(btn.dataset.cpEye);
+      if (!targetInput) return;
+      targetInput.type = targetInput.type === "password" ? "text" : "password";
+      btn.classList.toggle("active", targetInput.type === "text");
+    });
+  });
+
+  const oldInput = $("#cp-old-pwd");
+  const verifyBtn = $("#btn-cp-verify");
+  const reenterBtn = $("#btn-cp-reenter");
+  const oldFeedback = $("#cp-old-feedback");
+  const step1Badge = $("#cp-step1-badge");
+  const step2Form = $("#cp-step2-form");
+  const newInput = $("#cp-new-pwd");
+  const confirmInput = $("#cp-confirm-pwd");
+  const matchFeedback = $("#cp-match-feedback");
+  const saveBtn = $("#btn-cp-save");
+
+  const showFeedback = (el, type, text) => {
+    if (!el) return;
+    el.className = `cp-feedback ${type}`;
+    el.textContent = text;
+    el.classList.remove("hidden");
+  };
+
+  const hideFeedback = (el) => {
+    if (!el) return;
+    el.classList.add("hidden");
+    el.textContent = "";
+  };
+
+  const updateMatchState = () => {
+    const newVal = newInput?.value || "";
+    const confirmVal = confirmInput?.value || "";
+
+    if (!newVal && !confirmVal) {
+      hideFeedback(matchFeedback);
+      if (saveBtn) saveBtn.disabled = true;
+      return;
+    }
+
+    if (!confirmVal) {
+      hideFeedback(matchFeedback);
+      if (saveBtn) saveBtn.disabled = true;
+      return;
+    }
+
+    if (newVal === confirmVal && newVal.length > 0) {
+      showFeedback(matchFeedback, "success", "✓ Mật khẩu mới và xác nhận đã trùng khớp — sẵn sàng lưu.");
+      if (saveBtn) saveBtn.disabled = false;
+    } else {
+      showFeedback(matchFeedback, "error", "✕ Mật khẩu xác nhận chưa trùng khớp với mật khẩu mới.");
+      if (saveBtn) saveBtn.disabled = true;
+    }
+  };
+
+  const verifyOldPassword = async () => {
+    const oldVal = oldInput?.value || "";
+    if (!oldVal) {
+      showFeedback(oldFeedback, "error", "Vui lòng nhập mật khẩu cũ để kiểm tra.");
+      oldInput?.focus();
+      return;
+    }
+
+    if (verifyBtn) {
+      verifyBtn.disabled = true;
+      verifyBtn.textContent = "Đang kiểm tra...";
+    }
+    hideFeedback(oldFeedback);
+
+    try {
+      const res = await api("/api/auth/verify-password", {
+        method: "POST",
+        body: JSON.stringify({ oldPassword: oldVal }),
+      });
+
+      if (res.ok) {
+        verifiedOldPassword = oldVal;
+        if (oldInput) oldInput.disabled = true;
+        if (verifyBtn) verifyBtn.classList.add("hidden");
+        if (reenterBtn) reenterBtn.classList.remove("hidden");
+        if (step1Badge) {
+          step1Badge.textContent = "✓";
+          step1Badge.classList.add("done");
+        }
+        showFeedback(oldFeedback, "success", `✓ ${res.message || "Xác thực mật khẩu cũ thành công."}`);
+        step2Form?.classList.remove("hidden");
+        setTimeout(() => newInput?.focus(), 60);
+      }
+    } catch (err) {
+      verifiedOldPassword = "";
+      showFeedback(oldFeedback, "error", `✕ ${err.message || "Mật khẩu cũ không chính xác."}`);
+      oldInput?.focus();
+      oldInput?.select();
+    } finally {
+      if (verifyBtn) {
+        verifyBtn.disabled = false;
+        verifyBtn.textContent = "Kiểm tra";
+      }
+    }
+  };
+
+  verifyBtn?.addEventListener("click", verifyOldPassword);
+  oldInput?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      verifyOldPassword();
+    }
+  });
+
+  reenterBtn?.addEventListener("click", () => {
+    verifiedOldPassword = "";
+    if (oldInput) {
+      oldInput.disabled = false;
+      oldInput.value = "";
+      oldInput.focus();
+    }
+    if (newInput) newInput.value = "";
+    if (confirmInput) confirmInput.value = "";
+    if (verifyBtn) verifyBtn.classList.remove("hidden");
+    if (reenterBtn) reenterBtn.classList.add("hidden");
+    if (step1Badge) {
+      step1Badge.textContent = "1";
+      step1Badge.classList.remove("done");
+    }
+    hideFeedback(oldFeedback);
+    hideFeedback(matchFeedback);
+    if (saveBtn) saveBtn.disabled = true;
+    step2Form?.classList.add("hidden");
+  });
+
+  newInput?.addEventListener("input", updateMatchState);
+  confirmInput?.addEventListener("input", updateMatchState);
+
+  $("#btn-cp-cancel")?.addEventListener("click", closeModal);
+
+  step2Form?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const newVal = newInput?.value || "";
+    const confirmVal = confirmInput?.value || "";
+
+    if (!verifiedOldPassword) {
+      showFeedback(oldFeedback, "error", "Vui lòng kiểm tra mật khẩu cũ trước.");
+      return;
+    }
+    if (!newVal) {
+      showFeedback(matchFeedback, "error", "Vui lòng nhập mật khẩu mới.");
+      newInput?.focus();
+      return;
+    }
+    if (newVal !== confirmVal) {
+      showFeedback(matchFeedback, "error", "✕ Mật khẩu mới và xác nhận mật khẩu chưa trùng khớp.");
+      confirmInput?.focus();
+      return;
+    }
+
+    if (saveBtn) {
+      saveBtn.disabled = true;
+      saveBtn.textContent = "Đang lưu...";
+    }
+
+    try {
+      const res = await api("/api/auth/change-password", {
+        method: "POST",
+        body: JSON.stringify({
+          oldPassword: verifiedOldPassword,
+          newPassword: newVal,
+          confirmPassword: confirmVal,
+        }),
+      });
+      toast(res.message || "Đổi mật khẩu thành công!");
+      closeModal();
+    } catch (err) {
+      showFeedback(matchFeedback, "error", `✕ Lỗi đổi mật khẩu: ${err.message}`);
+      if (saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.textContent = "Lưu mật khẩu mới";
+      }
+    }
+  });
+
+  setTimeout(() => oldInput?.focus(), 60);
+}
+
+$("#btn-topbar-change-pwd")?.addEventListener("click", openChangePasswordModal);
+$("#btn-sidebar-change-pwd")?.addEventListener("click", openChangePasswordModal);
+$("#btn-topbar-logout")?.addEventListener("click", () => {
+  closeUserMenus();
+  logout();
+});
+
+$("#logout-btn").addEventListener("click", () => {
+  closeUserMenus();
+  logout();
+});
 
 async function enterApp() {
   try {
@@ -737,12 +1090,20 @@ async function enterApp() {
     if ($("#topbar-user-name"))
       $("#topbar-user-name").textContent =
         state.user.hoten || state.user.tendangnhap;
+    if ($("#topbar-menu-name"))
+      $("#topbar-menu-name").textContent =
+        state.user.hoten || state.user.tendangnhap;
+    if ($("#topbar-menu-account"))
+      $("#topbar-menu-account").textContent =
+        `${state.user.tendangnhap || ""}${state.user.tenbophan ? " · " + state.user.tenbophan : ""}`;
     $("#user-dept").textContent = state.user.tenbophan || "Nhân viên";
     $("#user-avatar").textContent = (state.user.hoten || "NV")
       .slice(0, 2)
       .toUpperCase();
+    closeUserMenus();
     $("#login-view").classList.add("hidden");
     $("#app-view").classList.remove("hidden");
+    $("#app-view").classList.add("sidebar-hidden");
     checkDbStatus();
     updateSidebarStateUI();
     navigate(state.currentPage);
@@ -756,6 +1117,7 @@ const PAGE_TITLES = {
   "ktv-time": "Thống kê Time KTV",
   "customer-search": "Tra cứu Khách hàng",
   "sales-stats": "Thống kê SP Bán ra",
+  timesheet: "Bảng chấm công",
   dashboard: "Tổng quan",
   customers: "Quản lý Khách hàng",
   care: "Chăm sóc Khách hàng",
@@ -787,6 +1149,8 @@ function navigate(page) {
     renderCustomerSearch();
   } else if (page === "sales-stats") {
     renderSalesStats();
+  } else if (page === "timesheet") {
+    renderTimesheet();
   } else if (page === "dashboard") {
     renderDashboard();
   } else if (page === "customers") {
@@ -835,22 +1199,16 @@ $("#sidebar-backdrop")?.addEventListener("click", () => {
   updateSidebarStateUI();
 });
 
-// Trên mobile/tablet (< 992px) đóng sidebar mặc định; trên PC/Desktop (>= 992px) mở sẵn danh sách chức năng
-if (window.innerWidth < 992) {
-  $("#app-view")?.classList.add("sidebar-hidden");
-} else {
-  $("#app-view")?.classList.remove("sidebar-hidden");
-}
+// Mặc định ẩn danh sách chức năng trên tất cả thiết bị; khi cần người dùng bấm "Danh sách chức năng" để mở
+$("#app-view")?.classList.add("sidebar-hidden");
 updateSidebarStateUI();
 
 $$("#nav-menu .nav-item").forEach((btn) => {
   btn.addEventListener("click", () => {
     navigate(btn.dataset.page);
-    // Trên thiết bị di động / màn hình hẹp (< 992px), tự động đóng sidebar sau khi chọn chức năng
-    if (window.innerWidth < 992) {
-      $("#app-view")?.classList.add("sidebar-hidden");
-      updateSidebarStateUI();
-    }
+    // Tự động ẩn lại danh sách chức năng sau khi chọn xong để tối ưu không gian làm việc
+    $("#app-view")?.classList.add("sidebar-hidden");
+    updateSidebarStateUI();
   });
 });
 
@@ -5018,6 +5376,699 @@ async function renderStaff() {
       </div>
     </div>
   `;
+}
+
+// ==================== BẢNG CHẤM CÔNG - LỊCH NGÀY NGHỈ NHÂN VIÊN ====================
+async function renderTimesheet() {
+  const el = $("#page-content");
+  if (!el) return;
+
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1;
+  const currentYear = now.getFullYear();
+  const currentDay = now.getDate();
+
+  let selectedMonth = currentMonth;
+  let selectedYear = currentYear;
+  let cachedData = null;
+  let viewMode = "matrix"; // "matrix" | "summary"
+  let showSundays = false;
+  let onlyWithLeave = true; // Mặc định chỉ hiện nhân viên có ngày nghỉ
+
+  const monthOptions = Array.from({ length: 12 }, (_, idx) => {
+    const m = idx + 1;
+    return `<option value="${m}" ${m === selectedMonth ? "selected" : ""}>Tháng ${String(m).padStart(2, "0")}</option>`;
+  }).join("");
+
+  const yearOptions = Array.from({ length: 8 }, (_, idx) => {
+    const y = currentYear + 1 - idx;
+    return `<option value="${y}" ${y === selectedYear ? "selected" : ""}>Năm ${y}</option>`;
+  }).join("");
+
+  el.innerHTML = `
+    <div class="card ts-hero-card">
+      <div class="ts-hero-top">
+        <div class="ts-hero-brand">
+          <div class="ts-hero-icon" aria-hidden="true">
+            <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+            </svg>
+          </div>
+          <div>
+            <h3 class="ts-hero-title">Bảng Chấm Công – Lịch Ngày Nghỉ Nhân Viên</h3>
+            <p class="ts-hero-sub">
+              Lịch làm việc chuẩn: <strong>Thứ 2 – Sáng Thứ 7</strong> (Chủ nhật nghỉ)
+            </p>
+          </div>
+        </div>
+
+        <div class="ts-kpi-strip" id="ts-inline-stats">
+          <div class="ts-kpi-pill">
+            <span class="ts-kpi-lbl">Nhân viên</span>
+            <strong id="ts-kpi-staff">—</strong>
+          </div>
+          <div class="ts-kpi-pill leave">
+            <span class="ts-kpi-lbl">Tổng ngày nghỉ</span>
+            <strong id="ts-kpi-leave">—</strong>
+          </div>
+          <div class="ts-kpi-pill neutral">
+            <span class="ts-kpi-lbl">Có nghỉ / Đi đủ</span>
+            <strong id="ts-kpi-ratio">—</strong>
+          </div>
+          <div class="ts-kpi-pill info">
+            <span class="ts-kpi-lbl">Công chuẩn</span>
+            <strong id="ts-kpi-std">—</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="ts-filter-bar">
+        <div class="ts-filter-group">
+          <div class="ts-field">
+            <label for="ts-month">Tháng</label>
+            <select id="ts-month">${monthOptions}</select>
+          </div>
+          <div class="ts-field">
+            <label for="ts-year">Năm</label>
+            <select id="ts-year">${yearOptions}</select>
+          </div>
+          <div class="ts-stepper" role="group" aria-label="Chuyển tháng nhanh">
+            <button type="button" class="ts-step-btn" id="btn-ts-prev" title="Tháng trước">◀</button>
+            <button type="button" class="ts-step-btn ts-step-now" id="btn-ts-now" title="Tháng hiện tại">Tháng này</button>
+            <button type="button" class="ts-step-btn" id="btn-ts-next" title="Tháng sau">▶</button>
+          </div>
+        </div>
+
+        <div class="ts-search-group">
+          <div class="ts-search-box">
+            <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+            <input type="text" id="ts-search" placeholder="Tìm nhanh nhân viên, bộ phận hoặc ghi chú..." autocomplete="off" />
+          </div>
+          <button type="button" class="btn btn-primary btn-sm ts-btn-find" id="btn-ts-search">
+            Tìm kiếm
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card ts-board-card" style="margin-top:14px">
+      <div class="ts-board-header">
+        <div class="ts-board-title-group">
+          <h3 class="ts-board-title" id="ts-table-title">Lịch ngày nghỉ tháng ${String(selectedMonth).padStart(2, "0")}/${selectedYear}</h3>
+          <span class="badge badge-blue" id="ts-row-count">0 nhân viên</span>
+        </div>
+
+        <div class="ts-board-controls">
+          <div class="ts-seg-control" role="tablist" aria-label="Lọc danh sách nhân viên">
+            <button type="button" class="ts-seg-btn active" data-ts-scope="leave" id="btn-ts-scope-leave">
+              Chỉ người có nghỉ <span class="ts-seg-count" id="ts-cnt-leave">0</span>
+            </button>
+            <button type="button" class="ts-seg-btn" data-ts-scope="all" id="btn-ts-scope-all">
+              Tất cả <span class="ts-seg-count" id="ts-cnt-all">0</span>
+            </button>
+          </div>
+
+          <label class="ts-check-pill" id="ts-sunday-toggle-wrap" title="Mặc định ẩn Chủ nhật vì lịch làm từ Thứ 2 đến sáng Thứ 7">
+            <input type="checkbox" id="ts-show-sunday" />
+            <span>Hiện CN</span>
+          </label>
+
+          <div class="ts-seg-control" role="tablist" aria-label="Chế độ xem">
+            <button type="button" class="ts-seg-btn active" data-ts-view="matrix">Lịch T2–Sáng T7</button>
+            <button type="button" class="ts-seg-btn" data-ts-view="summary">Tóm tắt gọn</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="ts-legend-bar" id="ts-legend-bar">
+        <span class="ts-legend-item"><span class="ts-cell-pill leave-full">1</span> Nghỉ cả ngày</span>
+        <span class="ts-legend-item"><span class="ts-cell-pill leave-half">0.5</span> Nghỉ nửa ngày</span>
+        <span class="ts-legend-item"><span class="ts-cell-pill zero">·</span> Đi làm bình thường</span>
+        <span class="ts-legend-item"><span class="ts-legend-sat"></span> Sáng Thứ 7 (nửa buổi)</span>
+        <span class="ts-legend-note">Ghi chú hiển thị đầy đủ nguyên văn</span>
+      </div>
+
+      <div id="ts-table-wrap">
+        <div style="padding:36px;text-align:center;color:var(--muted)">
+          Đang tải bảng chấm ngày nghỉ...
+        </div>
+      </div>
+    </div>
+  `;
+
+  const dayOfWeekVi = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
+
+  const formatNum = (val) => {
+    const n = Number(val || 0);
+    if (!Number.isFinite(n) || n === 0) return "0";
+    return Number.isInteger(n) ? String(n) : String(Math.round(n * 100) / 100);
+  };
+
+  const getLeaveTotal = (row) => {
+    const v = row.tongngaynghi ?? row.tongngaycong ?? 0;
+    return Math.round(Number(v || 0) * 100) / 100;
+  };
+
+  const renderTable = () => {
+    const wrap = $("#ts-table-wrap");
+    if (!wrap || !cachedData) return;
+
+    const q = ($("#ts-search")?.value || "").trim().toLowerCase();
+    const {
+      month,
+      year,
+      thangnam,
+      daysInMonth,
+      standardWorkDays = 0,
+      items = [],
+      summary = {},
+    } = cachedData;
+
+    const sundayToggleWrap = $("#ts-sunday-toggle-wrap");
+    if (sundayToggleWrap) {
+      sundayToggleWrap.style.display = viewMode === "matrix" ? "" : "none";
+    }
+    const legendBar = $("#ts-legend-bar");
+    if (legendBar) {
+      legendBar.style.display = viewMode === "matrix" ? "" : "none";
+    }
+
+    let filtered = items;
+    if (onlyWithLeave) {
+      filtered = filtered.filter((it) => getLeaveTotal(it) > 0);
+    }
+    if (q) {
+      filtered = filtered.filter(
+        (it) =>
+          (it.tennhanvien || "").toLowerCase().includes(q) ||
+          (it.tenbophan || "").toLowerCase().includes(q) ||
+          (it.ghichu || "").toLowerCase().includes(q)
+      );
+    }
+
+    const periodLabel = `${String(month).padStart(2, "0")}/${year}`;
+    if ($("#ts-table-title")) {
+      $("#ts-table-title").textContent = `Lịch ngày nghỉ tháng ${thangnam || periodLabel}`;
+    }
+    if ($("#ts-row-count")) {
+      $("#ts-row-count").textContent =
+        filtered.length !== items.length
+          ? `${filtered.length} / ${items.length} nhân viên`
+          : `${filtered.length} nhân viên`;
+    }
+
+    // Cập nhật thanh thống kê gọn trên header
+    const totalStaff = summary.totalStaff ?? items.length;
+    const staffWithLeave = summary.staffWithLeave ?? items.filter((it) => getLeaveTotal(it) > 0).length;
+    const staffFull = summary.staffFullAttendance ?? totalStaff - staffWithLeave;
+    const totalLeave = summary.totalLeaveDays ?? items.reduce((acc, it) => acc + getLeaveTotal(it), 0);
+    const stdDays = summary.standardWorkDays ?? standardWorkDays;
+
+    if ($("#ts-kpi-staff")) $("#ts-kpi-staff").textContent = `${totalStaff}`;
+    if ($("#ts-kpi-leave")) $("#ts-kpi-leave").textContent = `${formatNum(totalLeave)} ngày`;
+    if ($("#ts-kpi-ratio")) $("#ts-kpi-ratio").textContent = `${staffWithLeave} nghỉ · ${staffFull} đủ`;
+    if ($("#ts-kpi-std")) $("#ts-kpi-std").textContent = `${formatNum(stdDays)} công`;
+    if ($("#ts-cnt-leave")) $("#ts-cnt-leave").textContent = `${staffWithLeave}`;
+    if ($("#ts-cnt-all")) $("#ts-cnt-all").textContent = `${totalStaff}`;
+
+    if (!filtered.length) {
+      wrap.innerHTML = `
+        <div class="ts-empty-state">
+          <div class="ts-empty-msg">
+            ${
+              onlyWithLeave && !q
+                ? `Tháng <strong>${periodLabel}</strong> chưa có nhân viên nào phát sinh ngày nghỉ — tất cả đều đi làm đầy đủ.`
+                : q
+                  ? `Không tìm thấy nhân viên nào khớp với "<strong>${esc(q)}</strong>".`
+                  : `Chưa có dữ liệu chấm công cho tháng ${periodLabel}.`
+            }
+          </div>
+          ${
+            onlyWithLeave && !q && totalStaff > 0
+              ? `<button type="button" class="btn btn-outline btn-sm" id="btn-ts-show-all-empty">Xem tất cả ${totalStaff} nhân viên</button>`
+              : ""
+          }
+        </div>
+      `;
+      $("#btn-ts-show-all-empty")?.addEventListener("click", () => {
+        onlyWithLeave = false;
+        $$("[data-ts-scope]").forEach((b) =>
+          b.classList.toggle("active", b.dataset.tsScope === "all")
+        );
+        renderTable();
+      });
+      return;
+    }
+
+    const openLeaveDetailModal = (row) => {
+      const leaveTotal = getLeaveTotal(row);
+      const leaveItems = [];
+      for (let d = 1; d <= daysInMonth; d++) {
+        const val = Number(row[`day${d}`] || 0);
+        if (val > 0) {
+          const dow = new Date(year, month - 1, d).getDay();
+          const dowText = dow === 6 ? "Sáng Thứ 7" : dayOfWeekVi[dow];
+          leaveItems.push(
+            `<span class="ts-date-chip ${val < 1 ? "half" : "full"}"><strong>${String(d).padStart(2, "0")}/${String(month).padStart(2, "0")}/${year}</strong> (${dowText}): ${formatNum(val)} ngày</span>`
+          );
+        }
+      }
+      const noteText = (row.ghichu || "").trim();
+      openModal(
+        `Chi tiết ngày nghỉ – ${row.tennhanvien || row.idnhanvien}`,
+        `
+        <div class="ts-modal-detail">
+          <div class="ts-modal-meta">
+            <div>
+              <strong style="font-size:15px;color:var(--text-heading)">${esc(row.tennhanvien || row.idnhanvien)}</strong>
+              ${row.tenbophan ? `<div class="muted" style="font-size:12.5px;margin-top:2px">${esc(row.tenbophan)}</div>` : ""}
+            </div>
+            <span class="ts-total-pill ${leaveTotal > 0 ? "has-leave" : "no-leave"}">Tổng nghỉ tháng ${periodLabel}: ${formatNum(leaveTotal)} ngày</span>
+          </div>
+
+          <div class="ts-modal-section">
+            <div class="ts-modal-lbl">Các ngày nghỉ trong tháng ${periodLabel}</div>
+            ${
+              leaveItems.length
+                ? `<div class="ts-date-chips">${leaveItems.join("")}</div>`
+                : `<span class="ts-full-att-badge">Đi làm đầy đủ</span>`
+            }
+          </div>
+
+          <div class="ts-modal-section">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">
+              <div class="ts-modal-lbl" style="margin:0">Nội dung ghi chú đầy đủ</div>
+              ${
+                noteText
+                  ? `<button type="button" class="btn btn-outline btn-sm" id="btn-ts-copy-note">Sao chép ghi chú</button>`
+                  : ""
+              }
+            </div>
+            <div class="ts-modal-note-box">${noteText ? esc(noteText) : '<span class="muted">Không có ghi chú.</span>'}</div>
+          </div>
+        </div>
+        `
+      );
+      $("#btn-ts-copy-note")?.addEventListener("click", async () => {
+        try {
+          await copyToClipboard(noteText);
+          toast("Đã sao chép nội dung ghi chú.");
+        } catch (_) {}
+      });
+    };
+
+    // CHẾ ĐỘ 2: TÓM TẮT GỌN (Không cuộn ngang, đọc trọn vẹn ngày nghỉ & ghi chú)
+    if (viewMode === "summary") {
+      const summaryRowsHtml = filtered
+        .map((row, idx) => {
+          const leaveTotal = getLeaveTotal(row);
+          const leaveChips = [];
+          for (let d = 1; d <= daysInMonth; d++) {
+            const val = Number(row[`day${d}`] || 0);
+            if (val > 0) {
+              const dow = new Date(year, month - 1, d).getDay();
+              const dowText = dow === 6 ? "Sáng T7" : dayOfWeekVi[dow];
+              const chipCls = val < 1 ? "half" : "full";
+              leaveChips.push(
+                `<span class="ts-date-chip ${chipCls}"><strong>${String(d).padStart(2, "0")}/${String(month).padStart(2, "0")}</strong> (${dowText}): ${formatNum(val)}</span>`
+              );
+            }
+          }
+          const noteText = (row.ghichu || "").trim();
+
+          return `
+            <tr class="${leaveTotal > 0 ? "ts-row-has-leave" : ""}">
+              <td class="ts-sum-stt">${idx + 1}</td>
+              <td class="ts-sum-name">
+                <div class="ts-staff-info">
+                  <strong>${esc(row.tennhanvien || row.idnhanvien)}</strong>
+                  ${row.tenbophan ? `<small>${esc(row.tenbophan)}</small>` : ""}
+                </div>
+              </td>
+              <td class="ts-sum-total">
+                <span class="ts-total-pill ${leaveTotal > 0 ? "has-leave" : "no-leave"}">${formatNum(leaveTotal)} ngày</span>
+              </td>
+              <td class="ts-sum-dates">
+                ${
+                  leaveChips.length
+                    ? `<div class="ts-date-chips">${leaveChips.join("")}</div>`
+                    : `<span class="ts-full-att-badge">Đi làm đủ</span>`
+                }
+              </td>
+              <td class="ts-sum-note">
+                ${
+                  noteText
+                    ? `<div class="ts-sum-note-wrap">
+                         <div class="ts-note-fulltext">${esc(noteText)}</div>
+                         <button type="button" class="ts-note-detail-btn" data-ts-detail-idx="${idx}" title="Mở xem chi tiết & sao chép">Chi tiết</button>
+                       </div>`
+                    : '<span class="muted">—</span>'
+                }
+              </td>
+            </tr>
+          `;
+        })
+        .join("");
+
+      wrap.innerHTML = `
+        <div class="ts-summary-wrap">
+          <table class="ts-summary-table">
+            <thead>
+              <tr>
+                <th style="width:46px;text-align:center">STT</th>
+                <th style="width:185px">Nhân viên</th>
+                <th style="width:108px;text-align:center">Tổng nghỉ</th>
+                <th style="width:270px">Các ngày nghỉ tháng ${periodLabel}</th>
+                <th>Ghi chú</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${summaryRowsHtml}
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      wrap.querySelectorAll("[data-ts-detail-idx]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const r = filtered[Number(btn.dataset.tsDetailIdx)];
+          if (r) openLeaveDetailModal(r);
+        });
+      });
+      return;
+    }
+
+    // CHẾ ĐỘ 1: LỊCH THEO NGÀY (T2 -> Sáng T7, gọn thoáng, ghi chú hiển thị tràn ngang toàn dòng không bao giờ mất chữ)
+    const dayMeta = [];
+    const dailySums = new Array(daysInMonth + 1).fill(0);
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dt = new Date(year, month - 1, d);
+      const dow = dt.getDay(); // 0=CN, 1=T2 ... 6=T7
+      const isSunday = dow === 0;
+      const isSaturday = dow === 6;
+      const isToday = year === currentYear && month === currentMonth && d === currentDay;
+
+      // Kiểm tra xem Chủ nhật có phát sinh dữ liệu bất thường không
+      let sundayHasData = false;
+      if (isSunday) {
+        sundayHasData = filtered.some((r) => Number(r[`day${d}`] || 0) > 0);
+      }
+
+      if (isSunday && !showSundays && !sundayHasData) {
+        continue;
+      }
+
+      dayMeta.push({
+        d,
+        dow,
+        dowLabel: dayOfWeekVi[dow],
+        isSunday,
+        isSaturday,
+        isToday,
+        isWeekEndDivider: isSaturday && !showSundays,
+      });
+    }
+
+    let grandTotal = 0;
+    filtered.forEach((row) => {
+      grandTotal += getLeaveTotal(row);
+      for (let d = 1; d <= daysInMonth; d++) {
+        dailySums[d] += Number(row[`day${d}`] || 0);
+      }
+    });
+
+    const totalCols = 3 + dayMeta.length;
+
+    const headerDaysHtml = dayMeta
+      .map(({ d, dowLabel, isSaturday, isSunday, isToday, isWeekEndDivider }) => {
+        const cls = [
+          "ts-day-th",
+          isSaturday ? "ts-sat" : "",
+          isSunday ? "ts-sun" : "",
+          isToday ? "ts-today" : "",
+          isWeekEndDivider ? "ts-week-end" : "",
+        ]
+          .filter(Boolean)
+          .join(" ");
+        const tip = isSaturday
+          ? `Ngày ${String(d).padStart(2, "0")}/${periodLabel} – Sáng Thứ 7 (làm nửa buổi)`
+          : isSunday
+            ? `Ngày ${String(d).padStart(2, "0")}/${periodLabel} – Chủ nhật (ngày nghỉ)`
+            : `Ngày ${String(d).padStart(2, "0")}/${periodLabel} (${dowLabel})`;
+        return `
+          <th class="${cls}" title="${tip}">
+            <div class="ts-day-num">${String(d).padStart(2, "0")}</div>
+            <div class="ts-day-dow">${dowLabel}</div>
+          </th>
+        `;
+      })
+      .join("");
+
+    const bodyRowsHtml = filtered
+      .map((row, idx) => {
+        const leaveTotal = getLeaveTotal(row);
+        const noteText = (row.ghichu || "").trim();
+        const hasNote = noteText.length > 0;
+
+        const dayCellsHtml = dayMeta
+          .map(({ d, dowLabel, isSaturday, isSunday, isToday, isWeekEndDivider }) => {
+            const val = Number(row[`day${d}`] || 0);
+            const cls = [
+              "ts-day-td",
+              isSaturday ? "ts-sat" : "",
+              isSunday ? "ts-sun" : "",
+              isToday ? "ts-today" : "",
+              isWeekEndDivider ? "ts-week-end" : "",
+            ]
+              .filter(Boolean)
+              .join(" ");
+
+            let pillHtml = `<span class="ts-cell-pill zero">·</span>`;
+            let tip = `${row.tennhanvien} – ${String(d).padStart(2, "0")}/${periodLabel} (${isSaturday ? "Sáng T7" : dowLabel}): Đi làm bình thường`;
+            if (val > 0 && val < 1) {
+              pillHtml = `<span class="ts-cell-pill leave-half">${formatNum(val)}</span>`;
+              tip = `${row.tennhanvien} – ${String(d).padStart(2, "0")}/${periodLabel} (${isSaturday ? "Sáng T7" : dowLabel}): Nghỉ ${formatNum(val)} ngày`;
+            } else if (val === 1) {
+              pillHtml = `<span class="ts-cell-pill leave-full">1</span>`;
+              tip = `${row.tennhanvien} – ${String(d).padStart(2, "0")}/${periodLabel} (${isSaturday ? "Sáng T7" : dowLabel}): Nghỉ 1 ngày`;
+            } else if (val > 1) {
+              pillHtml = `<span class="ts-cell-pill leave-extra">${formatNum(val)}</span>`;
+              tip = `${row.tennhanvien} – ${String(d).padStart(2, "0")}/${periodLabel}: Nghỉ ${formatNum(val)} ngày`;
+            }
+            return `<td class="${cls}" title="${esc(tip)}">${pillHtml}</td>`;
+          })
+          .join("");
+
+        const mainRowHtml = `
+          <tr class="${leaveTotal > 0 ? "ts-row-has-leave" : ""} ${hasNote ? "ts-has-note-below" : ""}">
+            <td class="ts-sticky-stt">${idx + 1}</td>
+            <td class="ts-sticky-name">
+              <div class="ts-staff-info">
+                <strong>${esc(row.tennhanvien || row.idnhanvien)}</strong>
+                ${row.tenbophan ? `<small>${esc(row.tenbophan)}</small>` : ""}
+              </div>
+            </td>
+            <td class="ts-sticky-total-left">
+              <span class="ts-total-pill ${leaveTotal > 0 ? "has-leave" : "no-leave"}" title="Tổng ngày nghỉ trong tháng">${formatNum(leaveTotal)}</span>
+            </td>
+            ${dayCellsHtml}
+          </tr>
+        `;
+
+        if (!hasNote) return mainRowHtml;
+
+        const noteSubRowHtml = `
+          <tr class="ts-note-subrow">
+            <td colspan="${totalCols}" class="ts-note-subcell">
+              <div class="ts-note-banner">
+                <span class="ts-note-tag">
+                  <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                  </svg>
+                  Ghi chú
+                </span>
+                <div class="ts-note-fulltext">${esc(noteText)}</div>
+                <button type="button" class="ts-note-detail-btn" data-ts-detail-idx="${idx}" title="Xem đầy đủ & sao chép ghi chú">Chi tiết</button>
+              </div>
+            </td>
+          </tr>
+        `;
+
+        return mainRowHtml + noteSubRowHtml;
+      })
+      .join("");
+
+    const footerDaysHtml = dayMeta
+      .map(({ d, isSaturday, isSunday, isToday, isWeekEndDivider }) => {
+        const cls = [
+          "ts-day-td ts-foot-day",
+          isSaturday ? "ts-sat" : "",
+          isSunday ? "ts-sun" : "",
+          isToday ? "ts-today" : "",
+          isWeekEndDivider ? "ts-week-end" : "",
+          dailySums[d] > 0 ? "ts-foot-has-leave" : "",
+        ]
+          .filter(Boolean)
+          .join(" ");
+        return `<td class="${cls}">${dailySums[d] > 0 ? formatNum(dailySums[d]) : "·"}</td>`;
+      })
+      .join("");
+
+    const colgroupDaysHtml = dayMeta.map(() => `<col class="ts-col-day" />`).join("");
+
+    wrap.innerHTML = `
+      <div class="ts-table-scroll" id="ts-table-scroll">
+        <table class="ts-table">
+          <colgroup>
+            <col class="ts-col-stt" />
+            <col class="ts-col-name" />
+            <col class="ts-col-total" />
+            ${colgroupDaysHtml}
+          </colgroup>
+          <thead>
+            <tr>
+              <th class="ts-sticky-stt">STT</th>
+              <th class="ts-sticky-name">Nhân viên</th>
+              <th class="ts-sticky-total-left" title="Tổng số ngày nghỉ trong tháng">Tổng nghỉ</th>
+              ${headerDaysHtml}
+            </tr>
+          </thead>
+          <tbody>
+            ${bodyRowsHtml}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td class="ts-sticky-stt"></td>
+              <td class="ts-sticky-name"><strong>Tổng ngày nghỉ</strong></td>
+              <td class="ts-sticky-total-left"><strong class="ts-foot-grand">${formatNum(grandTotal)}</strong></td>
+              ${footerDaysHtml}
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    `;
+
+    // Đồng bộ chiều rộng khối ghi chú luôn khớp 100% khung nhìn hiện tại để không bao giờ tràn hay mất chữ
+    const syncNoteBannerWidths = () => {
+      const scroller = $("#ts-table-scroll");
+      if (!scroller) return;
+      const visibleW = scroller.clientWidth;
+      if (visibleW > 0) {
+        scroller.style.setProperty("--ts-visible-w", `${visibleW}px`);
+      }
+    };
+    syncNoteBannerWidths();
+    requestAnimationFrame(syncNoteBannerWidths);
+
+    if (window.__tsResizeHandler) {
+      window.removeEventListener("resize", window.__tsResizeHandler);
+    }
+    window.__tsResizeHandler = syncNoteBannerWidths;
+    window.addEventListener("resize", window.__tsResizeHandler);
+
+    wrap.querySelectorAll("[data-ts-detail-idx]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const r = filtered[Number(btn.dataset.tsDetailIdx)];
+        if (r) openLeaveDetailModal(r);
+      });
+    });
+  };
+
+  const loadTimesheet = async () => {
+    const m = parseInt($("#ts-month")?.value, 10) || currentMonth;
+    const y = parseInt($("#ts-year")?.value, 10) || currentYear;
+    selectedMonth = m;
+    selectedYear = y;
+
+    const wrap = $("#ts-table-wrap");
+    if (wrap) {
+      wrap.innerHTML = `
+        <div style="padding:36px;text-align:center;color:var(--muted)">
+          Đang tải lịch chấm ngày nghỉ tháng ${String(m).padStart(2, "0")}/${y}...
+        </div>
+      `;
+    }
+
+    try {
+      cachedData = await api(`/api/timesheet?month=${m}&year=${y}`);
+      renderTable();
+    } catch (err) {
+      if (wrap) {
+        wrap.innerHTML = `<div class="modern-alert error" style="margin:16px">Lỗi tải bảng chấm công: ${esc(err.message)}</div>`;
+      }
+      toast(`Lỗi tải bảng chấm công: ${err.message}`);
+    }
+  };
+
+  const syncSelectsAndLoad = (m, y) => {
+    const yearEl = $("#ts-year");
+    if (yearEl && !Array.from(yearEl.options).some((opt) => Number(opt.value) === y)) {
+      const opt = document.createElement("option");
+      opt.value = String(y);
+      opt.textContent = `Năm ${y}`;
+      yearEl.appendChild(opt);
+    }
+    if ($("#ts-month")) $("#ts-month").value = String(m);
+    if ($("#ts-year")) $("#ts-year").value = String(y);
+    loadTimesheet();
+  };
+
+  $("#btn-ts-search")?.addEventListener("click", loadTimesheet);
+  $("#ts-month")?.addEventListener("change", loadTimesheet);
+  $("#ts-year")?.addEventListener("change", loadTimesheet);
+  $("#ts-search")?.addEventListener("input", renderTable);
+
+  $$("[data-ts-scope]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      onlyWithLeave = btn.dataset.tsScope === "leave";
+      $$("[data-ts-scope]").forEach((b) =>
+        b.classList.toggle("active", b.dataset.tsScope === (onlyWithLeave ? "leave" : "all"))
+      );
+      renderTable();
+    });
+  });
+
+  $("#ts-show-sunday")?.addEventListener("change", (e) => {
+    showSundays = e.target.checked;
+    renderTable();
+  });
+
+  $$("[data-ts-view]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      viewMode = btn.dataset.tsView || "matrix";
+      $$("[data-ts-view]").forEach((b) => b.classList.toggle("active", b.dataset.tsView === viewMode));
+      renderTable();
+    });
+  });
+
+  $("#btn-ts-prev")?.addEventListener("click", () => {
+    let m = selectedMonth - 1;
+    let y = selectedYear;
+    if (m < 1) {
+      m = 12;
+      y -= 1;
+    }
+    syncSelectsAndLoad(m, y);
+  });
+
+  $("#btn-ts-next")?.addEventListener("click", () => {
+    let m = selectedMonth + 1;
+    let y = selectedYear;
+    if (m > 12) {
+      m = 1;
+      y += 1;
+    }
+    syncSelectsAndLoad(m, y);
+  });
+
+  $("#btn-ts-now")?.addEventListener("click", () => {
+    syncSelectsAndLoad(currentMonth, currentYear);
+  });
+
+  // Mặc định tìm và hiển thị ngay lịch chấm ngày nghỉ tháng năm hiện tại
+  await loadTimesheet();
 }
 
 // Bootstrap

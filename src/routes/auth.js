@@ -227,30 +227,144 @@ router.get('/me', authMiddleware, async (req, res) => {
   }
 });
 
-router.post('/change-password', authMiddleware, async (req, res) => {
-  const { oldPassword, newPassword } = req.body || {};
-  if (!oldPassword || !newPassword) {
-    return res.status(400).json({ error: 'Vui lòng nhập mật khẩu cũ và mật khẩu mới.' });
+/**
+ * Kiểm tra mật khẩu cũ của nhân viên (hỗ trợ cả dạng thường lẫn mã hóa MD5 Encoding.Unicode)
+ */
+function verifyStoredPassword(dbPassword, inputPassword) {
+  const stored = String(dbPassword ?? '');
+  const entered = String(inputPassword ?? '');
+  if (!entered || !stored) return { matched: false, mode: null };
+
+  const storedTrimUpper = stored.trim().toUpperCase();
+  const enteredTrimUpper = entered.trim().toUpperCase();
+  const enteredMd5 = createMD5(entered);
+
+  // 1. Mật khẩu nhập dạng thường -> hash MD5 trùng với chuỗi MD5 trong DB
+  if (enteredMd5 === storedTrimUpper) {
+    return { matched: true, mode: 'md5' };
   }
+  // 2. Mật khẩu nhập dạng chuỗi MD5 trực tiếp (32 ký tự hex) trùng với DB
+  if (/^[0-9A-F]{32}$/.test(enteredTrimUpper) && enteredTrimUpper === storedTrimUpper) {
+    return { matched: true, mode: 'md5_raw' };
+  }
+  // 3. Mật khẩu lưu dạng thường trong DB trùng trực tiếp với mật khẩu nhập
+  if (entered === stored || entered.trim() === stored.trim()) {
+    return { matched: true, mode: 'plain' };
+  }
+
+  return { matched: false, mode: null };
+}
+
+/**
+ * POST /api/auth/verify-password
+ * Kiểm tra mật khẩu cũ (dạng thường hoặc MD5) trước khi cho phép nhập mật khẩu mới
+ */
+router.post('/verify-password', authMiddleware, async (req, res) => {
+  const { oldPassword } = req.body || {};
+  if (!oldPassword) {
+    return res.status(400).json({ ok: false, error: 'Vui lòng nhập mật khẩu cũ.' });
+  }
+
   try {
     const pool = await getPool();
-    const check = await pool
+    const result = await pool
       .request()
       .input('idnhanvien', sql.VarChar(12), req.user.idnhanvien)
-      .input('matkhau', sql.NVarChar(50), oldPassword)
-      .query('SELECT idnhanvien FROM dbo.tblnhanvien WHERE idnhanvien = @idnhanvien AND matkhau = @matkhau');
+      .query(`
+        SELECT TOP 1 idnhanvien, tendangnhap, matkhau
+        FROM dbo.tblnhanvien
+        WHERE idnhanvien = @idnhanvien
+      `);
 
-    if (check.recordset.length === 0) {
-      return res.status(400).json({ error: 'Mật khẩu hiện tại không đúng.' });
+    const row = result.recordset[0];
+    if (!row) {
+      return res.status(404).json({ ok: false, error: 'Không tìm thấy tài khoản nhân viên.' });
     }
 
-    await pool
+    const check = verifyStoredPassword(row.matkhau, oldPassword);
+    if (!check.matched) {
+      return res.status(400).json({
+        ok: false,
+        error: 'Mật khẩu cũ không đúng. Vui lòng kiểm tra lại (hỗ trợ dạng thường hoặc MD5).',
+      });
+    }
+
+    return res.json({
+      ok: true,
+      mode: check.mode,
+      taikhoan: row.tendangnhap || req.user.tendangnhap || '',
+      message:
+        check.mode === 'plain'
+          ? 'Xác thực mật khẩu cũ thành công (dạng thường).'
+          : 'Xác thực mật khẩu cũ thành công (chuẩn MD5).',
+    });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+/**
+ * POST /api/auth/change-password
+ * Đổi mật khẩu qua Stored Procedure: dbo.tblNhanVien_DoiMatKhau
+ * Tham số: @idnhanvien, @taikhoan, @matkhau = Util.CreateMD5(matkhau)
+ */
+router.post('/change-password', authMiddleware, async (req, res) => {
+  const { oldPassword, newPassword, confirmPassword } = req.body || {};
+  if (!oldPassword || !newPassword) {
+    return res.status(400).json({ error: 'Vui lòng nhập đầy đủ mật khẩu cũ và mật khẩu mới.' });
+  }
+  if (confirmPassword !== undefined && newPassword !== confirmPassword) {
+    return res.status(400).json({ error: 'Mật khẩu mới và xác nhận mật khẩu không trùng khớp.' });
+  }
+
+  try {
+    const pool = await getPool();
+    const userRes = await pool
       .request()
       .input('idnhanvien', sql.VarChar(12), req.user.idnhanvien)
-      .input('matkhau', sql.NVarChar(50), newPassword)
-      .query('UPDATE dbo.tblnhanvien SET matkhau = @matkhau WHERE idnhanvien = @idnhanvien');
+      .query(`
+        SELECT TOP 1 idnhanvien, tendangnhap, matkhau
+        FROM dbo.tblnhanvien
+        WHERE idnhanvien = @idnhanvien
+      `);
 
-    return res.json({ ok: true, message: 'Đổi mật khẩu thành công.' });
+    const row = userRes.recordset[0];
+    if (!row) {
+      return res.status(404).json({ error: 'Không tìm thấy tài khoản nhân viên.' });
+    }
+
+    const check = verifyStoredPassword(row.matkhau, oldPassword);
+    if (!check.matched) {
+      return res.status(400).json({ error: 'Mật khẩu cũ không đúng.' });
+    }
+
+    const taikhoan = (row.tendangnhap || req.user.tendangnhap || '').trim();
+    const hashedNewPassword = createMD5(newPassword);
+
+    try {
+      const spReq = pool.request();
+      spReq.input('idnhanvien', sql.VarChar(12), req.user.idnhanvien);
+      spReq.input('taikhoan', sql.NVarChar(50), taikhoan);
+      spReq.input('matkhau', sql.NVarChar(50), hashedNewPassword);
+      await spReq.execute('dbo.tblNhanVien_DoiMatKhau');
+    } catch (spErr) {
+      console.warn('Lỗi execute dbo.tblNhanVien_DoiMatKhau, fallback SQL:', spErr.message);
+      await pool
+        .request()
+        .input('idnhanvien', sql.VarChar(12), req.user.idnhanvien)
+        .input('taikhoan', sql.NVarChar(50), taikhoan)
+        .input('matkhau', sql.NVarChar(50), hashedNewPassword)
+        .query(`
+          UPDATE dbo.tblnhanvien
+          SET tendangnhap = @taikhoan, matkhau = @matkhau
+          WHERE idnhanvien = @idnhanvien
+        `);
+    }
+
+    return res.json({
+      ok: true,
+      message: 'Đổi mật khẩu thành công! Mật khẩu mới đã được mã hóa MD5 và lưu vào hệ thống.',
+    });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }

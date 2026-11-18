@@ -82,3 +82,17 @@ Skill evon:ui-ux đọc file này trước khi dựng. Sửa tay được; file 
     - Chỉ hiển thị dạng thẻ (Cards view), loại bỏ hoàn toàn chế độ bảng phân cột.
     - Hiển thị nổi bật `idchamsockhachhang` qua badge `Mã CS: #idchamsockhachhang`, hỗ trợ sao chép 1 chạm vào bộ nhớ tạm.
     - Ẩn hoàn toàn các tag mặc định gây rối mắt: "Điện thoại", "Tư vấn khách hàng", và "-". Chỉ hiển thị khi có phân loại/đánh giá đặc biệt hoặc trạng thái thực tế.
+- `Danh sách chức năng (Sidebar) mặc định ẩn` (`index.html`, `app.js`):
+  - Khởi tạo mặc định với class `sidebar-hidden` trên mọi kích thước màn hình (Desktop & Mobile).
+  - Khi cần chuyển chức năng, người dùng nhấp vào nút **"Danh sách chức năng"** (`#btn-toggle-sidebar`) trên topbar để mở; tự động thu gọn lại sau khi chọn chức năng để tối đa hóa không gian hiển thị dữ liệu.
+- `Bảng chấm công – Lịch ngày nghỉ nhân viên` (`src/routes/timesheet.js`, `src/server.js`, `index.html`, `app.js`, `styles.css`):
+  - Mục menu **"Bảng chấm công"** (`data-page="timesheet"`) trong Danh sách chức năng.
+  - API `GET /api/timesheet?month=&year=` thực thi Stored Procedure `dbo.tblNhanVien_KhoiTao_BangChamCong` với tham số `@thangnam` (`varchar(12)`), tự động nhận diện định dạng `thangnam` sẵn có trong `dbo.tbl_BangChamCong` (như `MM/yyyy`, `M/yyyy`, `MM-yyyy`, `yyyy-MM`, `yyyyMM`...) để không tạo trùng bản ghi; tính chuẩn số ngày công trong tháng theo lịch **Thứ 2 – Thứ 6 (1 công/ngày) và Sáng Thứ 7 (0.5 công/ngày), Chủ nhật nghỉ**.
+  - Hiển thị đúng ngữ nghĩa **Lịch chấm ngày nghỉ nhân viên**: `0` = đi làm bình thường (`·`), `0.5` = nghỉ nửa ngày (pill vàng cam), `1` = nghỉ cả ngày (pill đỏ nhạt), cột `Tổng nghỉ` đặt ngay sát bên cạnh cột `Nhân viên` (xanh = đi làm đủ, đỏ = có nghỉ).
+  - Giao diện gọn thoáng, ẩn mặc định các cột Chủ nhật (`CN`) để tập trung vào ngày làm việc **Thứ 2 → Sáng Thứ 7** (kèm đường kẻ phân tuần rõ sau mỗi Thứ 7 và checkbox `Hiện CN` nếu cần).
+  - **Không cắt chữ / không dính cột**: dùng `table-layout: fixed` + `<colgroup>` khớp chính xác pixel các cột cố định trái (`STT` 46px, `Nhân viên` 184px, `Tổng nghỉ` 96px, cột ngày 38px, `Ghi chú` 320px tự xuống dòng đầy đủ `white-space: pre-wrap`); **mặc định ban đầu lọc "Chỉ người có nghỉ"** (kèm nút segmented chuyển nhanh sang **"Tất cả"** khi cần), hỗ trợ chế độ **Tóm tắt gọn** và giao diện thẻ hiện đại không hiện tên SP kỹ thuật trên tiêu đề.
+- `Đổi mật khẩu tài khoản` (`src/routes/auth.js`, `index.html`, `app.js`, `styles.css`):
+  - 2 điểm mở nhanh: bấm vào **tên người dùng cạnh nút Dark/Light** trên topbar (hiện dropdown *Đổi mật khẩu / Đăng xuất*) hoặc bấm vào **thẻ nhân viên đang đăng nhập bên trên nút Đăng xuất** trong sidebar (hiện nút *Đổi mật khẩu*).
+  - Modal đổi mật khẩu 2 bước rõ ràng:
+    - **Bước 1**: nhập mật khẩu cũ (`POST /api/auth/verify-password`), tự động xác thực khớp cả dạng thường lẫn chuẩn MD5 (`Encoding.Unicode` UTF-16LE + uppercase `X2`).
+    - **Bước 2** (chỉ mở khi bước 1 hợp lệ): nhập mật khẩu mới & xác nhận mật khẩu mới, kiểm tra trùng khớp trực tiếp; khi bấm lưu (`POST /api/auth/change-password`) chạy Stored Procedure `dbo.tblNhanVien_DoiMatKhau` với `@idnhanvien`, `@taikhoan`, `@matkhau = createMD5(matkhau)`.
